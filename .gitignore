@@ -37,3 +37,4 @@ go.work.sum
 compose.override.yaml
 
 p.md
+test/e2e/e2e-test
