@@ -11,12 +11,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/117503445/goutils"
-	"github.com/rs/zerolog/log"
 	"sshole/internal/agent"
 	"sshole/internal/entry"
 	"sshole/internal/hub"
+	"sshole/pkg/common"
 	"sshole/pkg/protocol"
+
+	"github.com/rs/zerolog/log"
 )
 
 // ComponentRunner 运行特定组件
@@ -316,10 +317,7 @@ func (cr *ComponentRunner) testEndToEndFlow() error {
 }
 
 // Run 运行指定的组件
-func (cr *ComponentRunner) Run() error {
-	ctx := context.Background()
-	ctx = log.Logger.WithContext(ctx)
-
+func (cr *ComponentRunner) Run(ctx context.Context) error {
 	switch cr.componentType {
 	case "hub":
 		return cr.RunHub(ctx)
@@ -335,22 +333,18 @@ func (cr *ComponentRunner) Run() error {
 }
 
 func main() {
-	// 初始化 zerolog
-	goutils.InitZeroLog()
-
 	// 设置全局 context logger
 	ctx := context.Background()
-	ctx = log.Logger.WithContext(ctx)
-	
-	log.Ctx(ctx).Info().Msg("Starting test runner application")
+	ctx = common.InitLogger(ctx, common.InitLoggerOption{Component: "e2e"})
+	logger := log.Ctx(ctx)
+
+	logger.Info().Msg("Starting test runner application")
 
 	runner := NewComponentRunner()
 
-	if err := runner.Run(); err != nil {
-		logger := log.Ctx(ctx)
+	if err := runner.Run(ctx); err != nil {
 		logger.Fatal().Err(err).Msg("Component failed")
 	}
 
-	logger := log.Ctx(ctx)
 	logger.Info().Msg("Component completed successfully")
 }

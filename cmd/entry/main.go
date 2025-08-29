@@ -7,19 +7,18 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/117503445/goutils"
-	"github.com/rs/zerolog/log"
 	"sshole/internal/entry"
+	"sshole/pkg/common"
 	"sshole/pkg/protocol"
+
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
-	// 初始化 zerolog
-	goutils.InitZeroLog()
-
 	// 设置全局 context logger
 	ctx := context.Background()
-	ctx = log.Logger.WithContext(ctx)
+	ctx = common.InitLogger(ctx, common.InitLoggerOption{Component: "entry"})
+
 	log.Ctx(ctx).Info().Msg("Starting entry application")
 
 	var (
