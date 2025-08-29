@@ -15,15 +15,23 @@
 ### 1. 构建项目
 
 ```bash
-# 构建 Hub
-go build -o bin/hub ./cmd/hub
+# 构建所有组件（推荐）
+go run scripts/build.go
 
-# 构建 Agent
-go build -o bin/agent ./cmd/agent
+# 或者使用详细输出
+go run scripts/build.go -verbose
 
-# 构建 Entry
-go build -o bin/entry ./cmd/entry
+# 清理并重新构建
+go run scripts/build.go -clean
+
+# 交叉编译（例如编译为 Linux amd64）
+go run scripts/build.go -os linux -arch amd64
 ```
+
+这将在 `bin/` 目录下生成三个可执行文件：
+- `bin/agent` - SSH Agent 组件
+- `bin/hub` - SSH Hub 服务器组件
+- `bin/entry` - SSH Entry 组件
 
 ### 2. 启动 Hub
 
