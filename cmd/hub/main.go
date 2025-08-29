@@ -3,17 +3,21 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/117503445/goutils"
+	"github.com/rs/zerolog/log"
 	"sshole/internal/hub"
 )
 
 func main() {
+	// 初始化 zerolog
+	goutils.InitZeroLog()
+
 	var (
 		addr    = flag.String("addr", ":8080", "HTTP server address")
 		timeout = flag.Duration("timeout", 30*time.Second, "Read/write timeout")
@@ -45,26 +49,26 @@ func main() {
 
 	// 启动服务器
 	go func() {
-		log.Printf("Starting hub server on %s", *addr)
+		log.Info().Str("addr", *addr).Msg("Starting hub server")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("Server failed: %v", err)
+			log.Error().Err(err).Msg("Server failed")
 			cancel()
 		}
 	}()
 
 	// 等待关闭信号
 	<-sigChan
-	log.Println("Shutting down hub...")
+	log.Info().Msg("Shutting down hub...")
 
 	// 优雅关闭服务器
 	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 30*time.Second)
 	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Server shutdown failed: %v", err)
+		log.Error().Err(err).Msg("Server shutdown failed")
 	}
 
 	// 停止 Hub
 	h.Stop()
-	log.Println("Hub stopped")
+	log.Info().Msg("Hub stopped")
 }
