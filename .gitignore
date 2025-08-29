@@ -38,3 +38,5 @@ compose.override.yaml
 
 p.md
 test/e2e/e2e-test
+entry-binary
+hub-binary

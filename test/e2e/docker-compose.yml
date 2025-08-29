@@ -11,6 +11,7 @@ services:
       - "8080:8080"
     environment:
       - COMPONENT_TYPE=hub
+      - RUN_IN_CONTAINER=true
     command: ["./e2e-test", "--component=hub"]
     networks:
       - sshole-test
@@ -32,6 +33,7 @@ services:
         condition: service_healthy
     environment:
       - COMPONENT_TYPE=agent
+      - RUN_IN_CONTAINER=true
       - HUB_ADDRESS=ws://hub:8080
       - AGENT_TOKEN=test-token
       - AGENT_ID=test-agent-01
@@ -52,6 +54,7 @@ services:
       - "10022:10022"
     environment:
       - COMPONENT_TYPE=entry
+      - RUN_IN_CONTAINER=true
       - HUB_ADDRESS=ws://hub:8080
       - ENTRY_TOKEN=test-token
       - CONNECTION_ID=test-connection-01
@@ -72,6 +75,7 @@ services:
       - entry
     environment:
       - COMPONENT_TYPE=test-runner
+      - RUN_IN_CONTAINER=true
       - HUB_ADDRESS=ws://hub:8080
       - SSH_HOST=entry
       - SSH_PORT=10022

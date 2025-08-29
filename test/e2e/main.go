@@ -217,9 +217,30 @@ func (cr *ComponentRunner) runTestSuite() error {
 	return nil
 }
 
+// getHubAddress 获取 Hub 地址
+func (cr *ComponentRunner) getHubAddress() string {
+	// 检查是否在容器环境中运行
+	if os.Getenv("RUN_IN_CONTAINER") == "true" {
+		return "http://hub:8080"
+	}
+	// 本地环境使用 localhost
+	return "http://localhost:8080"
+}
+
+// getEntryAddress 获取 Entry 地址
+func (cr *ComponentRunner) getEntryAddress() string {
+	// 检查是否在容器环境中运行
+	if os.Getenv("RUN_IN_CONTAINER") == "true" {
+		return "entry:10022"
+	}
+	// 本地环境使用 localhost
+	return "localhost:10022"
+}
+
 // testHealthCheck 测试健康检查
 func (cr *ComponentRunner) testHealthCheck() error {
-	resp, err := http.Get("http://hub:8080/health")
+	hubAddr := cr.getHubAddress()
+	resp, err := http.Get(hubAddr + "/health")
 	if err != nil {
 		return fmt.Errorf("health check failed: %v", err)
 	}
@@ -236,7 +257,8 @@ func (cr *ComponentRunner) testHealthCheck() error {
 func (cr *ComponentRunner) testWebSocketConnection() error {
 	// 这里可以实现更复杂的 WebSocket 测试
 	// 目前只是检查 Hub 是否可达
-	resp, err := http.Get("http://hub:8080/health")
+	hubAddr := cr.getHubAddress()
+	resp, err := http.Get(hubAddr + "/health")
 	if err != nil {
 		return fmt.Errorf("WebSocket endpoint check failed: %v", err)
 	}
@@ -248,7 +270,8 @@ func (cr *ComponentRunner) testWebSocketConnection() error {
 // testSSHConnection 测试 SSH 连接
 func (cr *ComponentRunner) testSSHConnection() error {
 	// 尝试连接到 Entry 提供的 SSH 服务
-	conn, err := net.DialTimeout("tcp", "entry:10022", 5*time.Second)
+	entryAddr := cr.getEntryAddress()
+	conn, err := net.DialTimeout("tcp", entryAddr, 5*time.Second)
 	if err != nil {
 		return fmt.Errorf("SSH connection failed: %v", err)
 	}

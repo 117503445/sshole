@@ -20,7 +20,8 @@ test/e2e/
 ├── Containerfile        # Podman 构建文件
 ├── docker-compose.yml   # Docker Compose 配置
 ├── podman-compose.yml   # Podman Compose 配置
-├── run-tests.sh         # 测试运行脚本
+├── tools/
+│   └── runner.go        # Go 语言测试运行器（替代 shell 脚本）
 └── README.md           # 本文档
 ```
 
@@ -30,7 +31,7 @@ test/e2e/
 
 ```bash
 # 运行完整的 E2E 测试套件
-./test/e2e/run-tests.sh podman
+go run test/e2e/tools/runner.go podman
 
 # 或者直接使用 podman-compose
 cd test/e2e
@@ -41,7 +42,7 @@ podman-compose up --build
 
 ```bash
 # 运行完整的 E2E 测试套件
-./test/e2e/run-tests.sh docker
+go run test/e2e/tools/runner.go docker
 
 # 或者直接使用 docker-compose
 cd test/e2e
@@ -52,10 +53,10 @@ docker-compose up --build
 
 ```bash
 # 本地运行测试（需要先启动各个组件）
-./test/e2e/run-tests.sh local
+go run test/e2e/tools/runner.go local
 
 # 或者只构建二进制文件
-./test/e2e/run-tests.sh build
+go run test/e2e/tools/runner.go build
 ```
 
 ## 测试组件
@@ -149,7 +150,7 @@ podman-compose exec test-runner sh
 ### 清理测试环境
 
 ```bash
-./test/e2e/run-tests.sh clean
+go run test/e2e/tools/runner.go clean
 ```
 
 ## 故障排除
@@ -166,7 +167,7 @@ podman-compose exec test-runner sh
 
 ```bash
 export LOG_LEVEL=debug
-./test/e2e/run-tests.sh podman
+go run test/e2e/tools/runner.go podman
 ```
 
 ## 扩展测试
@@ -206,9 +207,7 @@ services:
 # GitHub Actions 示例
 - name: Run E2E Tests
   run: |
-    cd test/e2e
-    chmod +x run-tests.sh
-    ./run-tests.sh podman
+    go run test/e2e/tools/runner.go podman
 ```
 
 ## 许可证
