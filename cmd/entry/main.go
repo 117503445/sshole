@@ -3,16 +3,20 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/117503445/goutils"
+	"github.com/rs/zerolog/log"
 	"sshole/internal/entry"
 	"sshole/pkg/protocol"
 )
 
 func main() {
+	// 初始化 zerolog
+	goutils.InitZeroLog()
+
 	var (
 		hubAddr   = flag.String("hub", "ws://localhost:8080", "Hub WebSocket address")
 		token     = flag.String("token", "", "Authentication token")
@@ -42,17 +46,17 @@ func main() {
 	// 启动 Entry
 	go func() {
 		if err := entry.Start(ctx); err != nil {
-			log.Printf("Entry failed: %v", err)
+			log.Error().Err(err).Msg("Entry failed")
 			cancel()
 		}
 	}()
 
 	// 等待关闭信号
 	<-sigChan
-	log.Println("Shutting down entry...")
+	log.Info().Msg("Shutting down entry...")
 	cancel()
 
 	// 等待清理完成
 	entry.Stop()
-	log.Println("Entry stopped")
+	log.Info().Msg("Entry stopped")
 }

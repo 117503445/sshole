@@ -1,11 +1,11 @@
 package hub
 
 import (
-	"log"
 	"net/http"
 	"sync"
 
 	"github.com/coder/websocket"
+	"github.com/rs/zerolog/log"
 )
 
 // Hub Hub 模块的主要结构
@@ -37,7 +37,7 @@ func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// TODO: 实现连接管理
 	// TODO: 实现消息路由
 
-	log.Println("WebSocket connection received")
+	log.Info().Msg("WebSocket connection received")
 }
 
 // HandleHealth 健康检查接口

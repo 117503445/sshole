@@ -2,10 +2,10 @@ package entry
 
 import (
 	"context"
-	"log"
 	"net"
 	"sync"
 
+	"github.com/rs/zerolog/log"
 	"sshole/pkg/protocol"
 	"sshole/pkg/websocket"
 )
@@ -40,7 +40,7 @@ func (e *Entry) Start(ctx context.Context) error {
 		e.mu.Unlock()
 	}()
 
-	log.Printf("Starting entry with local address: %s", e.localAddr)
+	log.Info().Str("local_addr", e.localAddr).Msg("Starting entry")
 
 	// 启动本地 SSH 服务器
 	if err := e.startLocalServer(ctx); err != nil {
@@ -63,7 +63,7 @@ func (e *Entry) startLocalServer(ctx context.Context) error {
 		return err
 	}
 
-	log.Printf("Local SSH server listening on %s", e.localAddr)
+	log.Info().Str("local_addr", e.localAddr).Msg("Local SSH server listening")
 
 	go func() {
 		for {
@@ -73,7 +73,7 @@ func (e *Entry) startLocalServer(ctx context.Context) error {
 			default:
 				conn, err := e.listener.Accept()
 				if err != nil {
-					log.Printf("Accept error: %v", err)
+					log.Error().Err(err).Msg("Accept error")
 					continue
 				}
 
@@ -90,7 +90,7 @@ func (e *Entry) handleSSHConnection(conn net.Conn) {
 	defer conn.Close()
 
 	// TODO: 实现 SSH 协议处理
-	log.Printf("New SSH connection from %s", conn.RemoteAddr())
+	log.Info().Str("remote_addr", conn.RemoteAddr().String()).Msg("New SSH connection")
 }
 
 // Stop 停止 Entry

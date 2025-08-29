@@ -3,16 +3,20 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/117503445/goutils"
+	"github.com/rs/zerolog/log"
 	"sshole/internal/agent"
 	"sshole/pkg/protocol"
 )
 
 func main() {
+	// 初始化 zerolog
+	goutils.InitZeroLog()
+
 	var (
 		hubAddr = flag.String("hub", "ws://localhost:8080", "Hub WebSocket address")
 		token   = flag.String("token", "", "Authentication token")
@@ -41,17 +45,17 @@ func main() {
 	// 启动 Agent
 	go func() {
 		if err := agent.Start(ctx); err != nil {
-			log.Printf("Agent failed: %v", err)
+			log.Error().Err(err).Msg("Agent failed")
 			cancel()
 		}
 	}()
 
 	// 等待关闭信号
 	<-sigChan
-	log.Println("Shutting down agent...")
+	log.Info().Msg("Shutting down agent...")
 	cancel()
 
 	// 等待清理完成
 	agent.Stop()
-	log.Println("Agent stopped")
+	log.Info().Msg("Agent stopped")
 }

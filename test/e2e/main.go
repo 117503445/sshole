@@ -4,17 +4,19 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/117503445/goutils"
+	"github.com/rs/zerolog/log"
 	"sshole/internal/agent"
 	"sshole/internal/entry"
 	"sshole/internal/hub"
 	"sshole/pkg/protocol"
-	"syscall"
-	"time"
 )
 
 // ComponentRunner 运行特定组件
@@ -50,7 +52,7 @@ func NewComponentRunner() *ComponentRunner {
 
 // RunHub 运行 Hub 组件
 func (cr *ComponentRunner) RunHub() error {
-	log.Println("Starting Hub component...")
+	log.Info().Msg("Starting Hub component...")
 
 	h := hub.NewHub()
 
@@ -71,32 +73,32 @@ func (cr *ComponentRunner) RunHub() error {
 
 	// 启动服务器
 	go func() {
-		log.Printf("Hub server listening on :8080")
+		log.Info().Str("addr", ":8080").Msg("Hub server listening")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("Hub server error: %v", err)
+			log.Error().Err(err).Msg("Hub server error")
 		}
 	}()
 
 	// 等待信号
 	<-sigChan
-	log.Println("Shutting down Hub...")
+	log.Info().Msg("Shutting down Hub...")
 
 	// 优雅关闭
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Hub shutdown error: %v", err)
+		log.Error().Err(err).Msg("Hub shutdown error")
 	}
 
 	h.Stop()
-	log.Println("Hub stopped")
+	log.Info().Msg("Hub stopped")
 	return nil
 }
 
 // RunAgent 运行 Agent 组件
 func (cr *ComponentRunner) RunAgent() error {
-	log.Println("Starting Agent component...")
+	log.Info().Msg("Starting Agent component...")
 
 	connInfo := &protocol.ConnectionInfo{
 		HubAddress: cr.hubAddr,
@@ -115,23 +117,23 @@ func (cr *ComponentRunner) RunAgent() error {
 	// 启动 Agent
 	go func() {
 		if err := agent.Start(cr.ctx); err != nil {
-			log.Printf("Agent error: %v", err)
+			log.Error().Err(err).Msg("Agent error")
 		}
 	}()
 
 	// 等待信号
 	<-sigChan
-	log.Println("Shutting down Agent...")
+	log.Info().Msg("Shutting down Agent...")
 
 	cr.cancel()
 	agent.Stop()
-	log.Println("Agent stopped")
+	log.Info().Msg("Agent stopped")
 	return nil
 }
 
 // RunEntry 运行 Entry 组件
 func (cr *ComponentRunner) RunEntry() error {
-	log.Println("Starting Entry component...")
+	log.Info().Msg("Starting Entry component...")
 
 	connInfo := &protocol.ConnectionInfo{
 		HubAddress: cr.hubAddr,
@@ -150,23 +152,23 @@ func (cr *ComponentRunner) RunEntry() error {
 	// 启动 Entry
 	go func() {
 		if err := entry.Start(cr.ctx); err != nil {
-			log.Printf("Entry error: %v", err)
+			log.Error().Err(err).Msg("Entry error")
 		}
 	}()
 
 	// 等待信号
 	<-sigChan
-	log.Println("Shutting down Entry...")
+	log.Info().Msg("Shutting down Entry...")
 
 	cr.cancel()
 	entry.Stop()
-	log.Println("Entry stopped")
+	log.Info().Msg("Entry stopped")
 	return nil
 }
 
 // RunTestRunner 运行测试运行器
 func (cr *ComponentRunner) RunTestRunner() error {
-	log.Println("Starting Test Runner...")
+	log.Info().Msg("Starting Test Runner...")
 
 	cr.ctx, cr.cancel = context.WithCancel(context.Background())
 
@@ -175,20 +177,20 @@ func (cr *ComponentRunner) RunTestRunner() error {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// 等待组件启动
-	log.Println("Waiting for components to be ready...")
+	log.Info().Msg("Waiting for components to be ready...")
 	time.Sleep(5 * time.Second)
 
 	// 运行测试
 	if err := cr.runTestSuite(); err != nil {
-		log.Printf("Test suite failed: %v", err)
+		log.Error().Err(err).Msg("Test suite failed")
 		return err
 	}
 
-	log.Println("All tests passed! Waiting for shutdown signal...")
+	log.Info().Msg("All tests passed! Waiting for shutdown signal...")
 
 	// 等待信号
 	<-sigChan
-	log.Println("Test runner shutting down...")
+	log.Info().Msg("Test runner shutting down...")
 	cr.cancel()
 
 	return nil
@@ -207,11 +209,11 @@ func (cr *ComponentRunner) runTestSuite() error {
 	}
 
 	for _, test := range tests {
-		log.Printf("Running test: %s", test.name)
+		log.Info().Str("test_name", test.name).Msg("Running test")
 		if err := test.fn(); err != nil {
 			return fmt.Errorf("test %s failed: %v", test.name, err)
 		}
-		log.Printf("✓ Test %s passed", test.name)
+		log.Info().Str("test_name", test.name).Msg("✓ Test passed")
 	}
 
 	return nil
@@ -291,7 +293,7 @@ func (cr *ComponentRunner) testEndToEndFlow() error {
 	// 这里可以实现更复杂的端到端测试
 	// 验证整个 agent -> hub -> entry 的数据流
 
-	log.Println("Testing end-to-end data flow...")
+	log.Info().Msg("Testing end-to-end data flow...")
 
 	// 简单的延迟测试，模拟数据传输
 	time.Sleep(2 * time.Second)
@@ -322,13 +324,14 @@ func (cr *ComponentRunner) Run() error {
 }
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	// 初始化 zerolog
+	goutils.InitZeroLog()
 
 	runner := NewComponentRunner()
 
 	if err := runner.Run(); err != nil {
-		log.Fatalf("Component failed: %v", err)
+		log.Fatal().Err(err).Msg("Component failed")
 	}
 
-	log.Println("Component completed successfully")
+	log.Info().Msg("Component completed successfully")
 }

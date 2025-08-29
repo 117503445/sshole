@@ -3,12 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/117503445/goutils"
+	"github.com/rs/zerolog/log"
 )
 
 // BuildConfig 构建配置
@@ -253,10 +255,13 @@ func (b *BuildConfig) Run() error {
 }
 
 func main() {
+	// 初始化 zerolog
+	goutils.InitZeroLog()
+
 	config := NewBuildConfig()
 	flag.Parse()
 
 	if err := config.Run(); err != nil {
-		log.Fatalf("Build failed: %v", err)
+		log.Fatal().Err(err).Msg("Build failed")
 	}
 }

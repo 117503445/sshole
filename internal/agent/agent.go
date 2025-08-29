@@ -2,9 +2,9 @@ package agent
 
 import (
 	"context"
-	"log"
 	"sync"
 
+	"github.com/rs/zerolog/log"
 	"sshole/pkg/protocol"
 	"sshole/pkg/websocket"
 )
@@ -36,7 +36,7 @@ func (a *Agent) Start(ctx context.Context) error {
 		a.mu.Unlock()
 	}()
 
-	log.Printf("Starting agent with hub: %s", a.connInfo.HubAddress)
+	log.Info().Str("hub_addr", a.connInfo.HubAddress).Msg("Starting agent")
 
 	// TODO: 实现 WebSocket 连接逻辑
 	// TODO: 实现 SSH shell 监听逻辑
