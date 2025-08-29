@@ -1,0 +1,14 @@
+services:
+  dev:
+    build:
+      context: ./
+      dockerfile: dev.Dockerfile
+    volumes:
+        - ./:/workspace
+        - lingma:/root/.lingma
+    ports:
+      - 2222:22
+    privileged: true
+    
+volumes:
+  lingma:
