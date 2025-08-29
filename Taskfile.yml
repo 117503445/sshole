@@ -1,12 +1,48 @@
-version: '3'
+# 运行 go-task 命令 而不是 task 命令
+# go-task build
+
+version: "3"
+
+vars:
+  # 项目配置变量
+  BIN_DIR: bin
 
 tasks:
   default:
-    desc: "The default task" 
+    desc: "Show available tasks (alias: help)"
     cmds:
-      - clear
-      - task: run
+      - task: help
 
-  run:
+  help:
+    desc: "Show all available tasks"
     cmds:
-      - go run .
+      - echo "Available tasks:"
+      - echo ""
+      - task --list-all
+      - echo ""
+      - 'echo "Usage: go-task <task-name>"'
+      - 'echo "   or: task <task-name>"'
+
+  build:
+    desc: "Build all components using build script"
+    cmds:
+      # go-task build
+      - go run scripts/build.go
+
+  test:
+    desc: "Run unit tests"
+    cmds:
+      # go-task test
+      - go test ./...
+
+  test-verbose:
+    desc: "Run unit tests with verbose output"
+    cmds:
+      # go-task test-verbose
+      - go test -v ./...
+
+  e2e:
+    desc: "Run end-to-end tests locally"
+    cmds:
+      # go-task e2e
+      - go run test/e2e/tools/runner.go local
