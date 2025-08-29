@@ -18,6 +18,11 @@ func main() {
 	// 初始化 zerolog
 	goutils.InitZeroLog()
 
+	// 设置全局 context logger
+	ctx := context.Background()
+	ctx = log.Logger.WithContext(ctx)
+	log.Ctx(ctx).Info().Msg("Starting hub application")
+
 	var (
 		addr    = flag.String("addr", ":8080", "HTTP server address")
 		timeout = flag.Duration("timeout", 30*time.Second, "Read/write timeout")
@@ -29,7 +34,9 @@ func main() {
 
 	// 创建 HTTP 服务器
 	mux := http.NewServeMux()
-	mux.HandleFunc("/ws", h.HandleWebSocket)
+	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		h.HandleWebSocket(ctx, w, r)
+	})
 	mux.HandleFunc("/health", h.HandleHealth)
 
 	server := &http.Server{
@@ -49,26 +56,28 @@ func main() {
 
 	// 启动服务器
 	go func() {
-		log.Info().Str("addr", *addr).Msg("Starting hub server")
+		logger := log.Ctx(ctx)
+		logger.Info().Str("addr", *addr).Msg("Starting hub server")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error().Err(err).Msg("Server failed")
+			logger.Error().Err(err).Msg("Server failed")
 			cancel()
 		}
 	}()
 
 	// 等待关闭信号
 	<-sigChan
-	log.Info().Msg("Shutting down hub...")
+	logger := log.Ctx(ctx)
+	logger.Info().Msg("Shutting down hub...")
 
 	// 优雅关闭服务器
 	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 30*time.Second)
 	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Error().Err(err).Msg("Server shutdown failed")
+		logger.Error().Err(err).Msg("Server shutdown failed")
 	}
 
 	// 停止 Hub
 	h.Stop()
-	log.Info().Msg("Hub stopped")
+	logger.Info().Msg("Hub stopped")
 }

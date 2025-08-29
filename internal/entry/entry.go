@@ -30,6 +30,8 @@ func NewEntry(connInfo *protocol.ConnectionInfo, localAddr string) *Entry {
 
 // Start 启动 Entry
 func (e *Entry) Start(ctx context.Context) error {
+	logger := log.Ctx(ctx)
+
 	e.mu.Lock()
 	e.running = true
 	e.mu.Unlock()
@@ -40,7 +42,7 @@ func (e *Entry) Start(ctx context.Context) error {
 		e.mu.Unlock()
 	}()
 
-	log.Info().Str("local_addr", e.localAddr).Msg("Starting entry")
+	logger.Info().Str("local_addr", e.localAddr).Msg("Starting entry")
 
 	// 启动本地 SSH 服务器
 	if err := e.startLocalServer(ctx); err != nil {
@@ -57,40 +59,44 @@ func (e *Entry) Start(ctx context.Context) error {
 
 // startLocalServer 启动本地 SSH 服务器
 func (e *Entry) startLocalServer(ctx context.Context) error {
+	logger := log.Ctx(ctx)
+
 	var err error
 	e.listener, err = net.Listen("tcp", e.localAddr)
 	if err != nil {
 		return err
 	}
 
-	log.Info().Str("local_addr", e.localAddr).Msg("Local SSH server listening")
+	logger.Info().Str("local_addr", e.localAddr).Msg("Local SSH server listening")
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				conn, err := e.listener.Accept()
-				if err != nil {
-					log.Error().Err(err).Msg("Accept error")
-					continue
+			go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					conn, err := e.listener.Accept()
+					if err != nil {
+						logger.Error().Err(err).Msg("Accept error")
+						continue
+					}
+
+					go e.handleSSHConnection(ctx, conn)
 				}
-
-				go e.handleSSHConnection(conn)
 			}
-		}
-	}()
+		}()
 
 	return nil
 }
 
 // handleSSHConnection 处理 SSH 连接
-func (e *Entry) handleSSHConnection(conn net.Conn) {
+func (e *Entry) handleSSHConnection(ctx context.Context, conn net.Conn) {
+	logger := log.Ctx(ctx)
+
 	defer conn.Close()
 
 	// TODO: 实现 SSH 协议处理
-	log.Info().Str("remote_addr", conn.RemoteAddr().String()).Msg("New SSH connection")
+	logger.Info().Str("remote_addr", conn.RemoteAddr().String()).Msg("New SSH connection")
 }
 
 // Stop 停止 Entry

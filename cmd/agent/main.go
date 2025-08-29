@@ -17,6 +17,12 @@ func main() {
 	// 初始化 zerolog
 	goutils.InitZeroLog()
 
+	// 设置全局 context logger
+	ctx := context.Background()
+	ctx = log.Logger.With().Logger().WithContext(ctx)
+
+	log.Ctx(ctx).Info().Msg("Starting agent application")
+
 	var (
 		hubAddr = flag.String("hub", "ws://localhost:8080", "Hub WebSocket address")
 		token   = flag.String("token", "", "Authentication token")
@@ -44,18 +50,20 @@ func main() {
 
 	// 启动 Agent
 	go func() {
+		logger := log.Ctx(ctx)
 		if err := agent.Start(ctx); err != nil {
-			log.Error().Err(err).Msg("Agent failed")
+			logger.Error().Err(err).Msg("Agent failed")
 			cancel()
 		}
 	}()
 
 	// 等待关闭信号
 	<-sigChan
-	log.Info().Msg("Shutting down agent...")
+	logger := log.Ctx(ctx)
+	logger.Info().Msg("Shutting down agent...")
 	cancel()
 
 	// 等待清理完成
 	agent.Stop()
-	log.Info().Msg("Agent stopped")
+	logger.Info().Msg("Agent stopped")
 }

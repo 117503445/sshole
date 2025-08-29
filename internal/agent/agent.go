@@ -26,6 +26,8 @@ func NewAgent(connInfo *protocol.ConnectionInfo) *Agent {
 
 // Start 启动 Agent
 func (a *Agent) Start(ctx context.Context) error {
+	logger := log.Ctx(ctx)
+
 	a.mu.Lock()
 	a.running = true
 	a.mu.Unlock()
@@ -36,7 +38,7 @@ func (a *Agent) Start(ctx context.Context) error {
 		a.mu.Unlock()
 	}()
 
-	log.Info().Str("hub_addr", a.connInfo.HubAddress).Msg("Starting agent")
+	logger.Info().Str("hub_addr", a.connInfo.HubAddress).Msg("Starting agent")
 
 	// TODO: 实现 WebSocket 连接逻辑
 	// TODO: 实现 SSH shell 监听逻辑

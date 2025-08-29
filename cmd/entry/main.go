@@ -17,6 +17,11 @@ func main() {
 	// 初始化 zerolog
 	goutils.InitZeroLog()
 
+	// 设置全局 context logger
+	ctx := context.Background()
+	ctx = log.Logger.WithContext(ctx)
+	log.Ctx(ctx).Info().Msg("Starting entry application")
+
 	var (
 		hubAddr   = flag.String("hub", "ws://localhost:8080", "Hub WebSocket address")
 		token     = flag.String("token", "", "Authentication token")
@@ -45,18 +50,20 @@ func main() {
 
 	// 启动 Entry
 	go func() {
+		logger := log.Ctx(ctx)
 		if err := entry.Start(ctx); err != nil {
-			log.Error().Err(err).Msg("Entry failed")
+			logger.Error().Err(err).Msg("Entry failed")
 			cancel()
 		}
 	}()
 
 	// 等待关闭信号
 	<-sigChan
-	log.Info().Msg("Shutting down entry...")
+	logger := log.Ctx(ctx)
+	logger.Info().Msg("Shutting down entry...")
 	cancel()
 
 	// 等待清理完成
 	entry.Stop()
-	log.Info().Msg("Entry stopped")
+	logger.Info().Msg("Entry stopped")
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/117503445/goutils"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -132,13 +134,13 @@ func getComponents() []Component {
 }
 
 // createOutputDir 创建输出目录
-func (b *BuildConfig) createOutputDir(logger *Logger) error {
-	logger.Verbose("Creating output directory: %s", b.outputDir)
+func (b *BuildConfig) createOutputDir(ctx context.Context, logger *zerolog.Logger) error {
+	logger.Debug().Str("output_dir", b.outputDir).Msg("Creating output directory")
 
 	if b.clean {
-		logger.Info("Cleaning output directory...")
+		logger.Info().Msg("Cleaning output directory...")
 		if err := os.RemoveAll(b.outputDir); err != nil {
-			logger.Verbose("Warning: failed to clean directory: %v", err)
+			logger.Warn().Err(err).Msg("Warning: failed to clean directory")
 		}
 	}
 
@@ -150,8 +152,8 @@ func (b *BuildConfig) createOutputDir(logger *Logger) error {
 }
 
 // buildComponent 构建单个组件
-func (b *BuildConfig) buildComponent(component Component, logger *Logger) error {
-	logger.Info("Building %s (%s)...", component.name, component.desc)
+func (b *BuildConfig) buildComponent(ctx context.Context, component Component, logger *zerolog.Logger) error {
+	logger.Info().Str("component", component.name).Str("desc", component.desc).Msg("Building component")
 
 	outputPath := filepath.Join(b.outputDir, component.binary)
 
@@ -164,12 +166,12 @@ func (b *BuildConfig) buildComponent(component Component, logger *Logger) error 
 	// 如果是交叉编译，添加更多参数
 	if b.targetOS != runtime.GOOS || b.targetArch != runtime.GOARCH {
 		args = append(args, fmt.Sprintf("-target=%s/%s", b.targetOS, b.targetArch))
-		logger.Verbose("Cross-compiling for %s/%s", b.targetOS, b.targetArch)
+		logger.Debug().Str("target_os", b.targetOS).Str("target_arch", b.targetArch).Msg("Cross-compiling")
 	}
 
 	args = append(args, component.path)
 
-	logger.Verbose("Running: go %s", strings.Join(args, " "))
+	logger.Debug().Str("command", "go "+strings.Join(args, " ")).Msg("Running build command")
 
 	// 执行构建
 	cmd := exec.Command("go", args...)
@@ -180,18 +182,17 @@ func (b *BuildConfig) buildComponent(component Component, logger *Logger) error 
 		return fmt.Errorf("failed to build %s: %v", component.name, err)
 	}
 
-	logger.Success("Built %s successfully", component.name)
-	logger.Verbose("Output: %s", outputPath)
+	logger.Info().Str("component", component.name).Msg("Built successfully")
+	logger.Debug().Str("output_path", outputPath).Msg("Output location")
 
 	return nil
 }
 
 // showBuildResults 显示构建结果
-func (b *BuildConfig) showBuildResults(components []Component, logger *Logger) error {
-	logger.Success("Build complete!")
-	fmt.Println("")
+func (b *BuildConfig) showBuildResults(ctx context.Context, components []Component, logger *zerolog.Logger) error {
+	logger.Info().Msg("Build complete!")
 
-	logger.Info("Generated binaries:")
+	logger.Info().Msg("Generated binaries:")
 	fmt.Println("📋 Generated binaries:")
 
 	// 列出所有生成的文件
@@ -222,20 +223,20 @@ func (b *BuildConfig) showBuildResults(components []Component, logger *Logger) e
 }
 
 // Run 执行构建
-func (b *BuildConfig) Run() error {
-	logger := NewLogger(b.verbose)
+func (b *BuildConfig) Run(ctx context.Context) error {
+	logger := log.Ctx(ctx)
 
-	logger.Info("Building sshole project...")
+	logger.Info().Msg("Building sshole project...")
 
 	// 获取项目根目录
 	projectRoot, err := getProjectRoot()
 	if err != nil {
 		return fmt.Errorf("failed to get project root: %v", err)
 	}
-	logger.Verbose("Project root: %s", projectRoot)
+	logger.Debug().Str("project_root", projectRoot).Msg("Project root")
 
 	// 创建输出目录
-	if err := b.createOutputDir(logger); err != nil {
+	if err := b.createOutputDir(ctx, logger); err != nil {
 		return err
 	}
 
@@ -244,24 +245,30 @@ func (b *BuildConfig) Run() error {
 
 	// 构建所有组件
 	for _, component := range components {
-		if err := b.buildComponent(component, logger); err != nil {
-			logger.Error("Build failed for %s: %v", component.name, err)
+		if err := b.buildComponent(ctx, component, logger); err != nil {
+			logger.Error().Str("component", component.name).Err(err).Msg("Build failed")
 			return err
 		}
 	}
 
 	// 显示构建结果
-	return b.showBuildResults(components, logger)
+	return b.showBuildResults(ctx, components, logger)
 }
 
 func main() {
 	// 初始化 zerolog
 	goutils.InitZeroLog()
 
+	// 设置全局 context logger
+	ctx := context.Background()
+	ctx = log.Logger.WithContext(ctx)
+	log.Ctx(ctx).Info().Msg("Starting build application")
+
 	config := NewBuildConfig()
 	flag.Parse()
 
-	if err := config.Run(); err != nil {
-		log.Fatal().Err(err).Msg("Build failed")
+	if err := config.Run(ctx); err != nil {
+		logger := log.Ctx(ctx)
+		logger.Fatal().Err(err).Msg("Build failed")
 	}
 }

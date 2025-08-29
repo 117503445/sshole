@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"context"
 	"net/http"
 	"sync"
 
@@ -32,12 +33,14 @@ func NewHub() *Hub {
 }
 
 // HandleWebSocket 处理 WebSocket 连接
-func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+func (h *Hub) HandleWebSocket(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	logger := log.Ctx(ctx)
+
 	// TODO: 实现 WebSocket 升级
 	// TODO: 实现连接管理
 	// TODO: 实现消息路由
 
-	log.Info().Msg("WebSocket connection received")
+	logger.Info().Msg("WebSocket connection received")
 }
 
 // HandleHealth 健康检查接口
