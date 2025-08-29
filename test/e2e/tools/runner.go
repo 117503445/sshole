@@ -89,6 +89,9 @@ func (r *Runner) checkCommand(command string) error {
 	return nil
 }
 
+// runWithDocker 使用 Docker 运行测试 (已删除)
+// runWithPodman 使用 Podman 运行测试 (已删除)
+
 // runCommand 执行命令
 func (r *Runner) runCommand(dir string, name string, args ...string) error {
 	cmd := exec.Command(name, args...)
@@ -137,55 +140,7 @@ func (r *Runner) buildTestBinary() error {
 	return nil
 }
 
-// runWithDocker 使用 Docker 运行测试
-func (r *Runner) runWithDocker() error {
-	logger.Info("Running e2e tests with Docker...")
-
-	if err := r.checkCommand("docker"); err != nil {
-		return err
-	}
-
-	// 构建和运行
-	err := r.runCommand(r.e2eDir, "docker-compose", "up", "--build", "--abort-on-container-exit", "--exit-code-from", "test-runner")
-	if err != nil {
-		logger.Error("E2E tests failed with Docker")
-		return err
-	}
-
-	logger.Success("E2E tests passed with Docker")
-
-	// 清理
-	r.runCommand(r.e2eDir, "docker-compose", "down", "-v")
-
-	return nil
-}
-
-// runWithPodman 使用 Podman 运行测试
-func (r *Runner) runWithPodman() error {
-	logger.Info("Running e2e tests with Podman...")
-
-	if err := r.checkCommand("podman"); err != nil {
-		return err
-	}
-
-	if err := r.checkCommand("podman-compose"); err != nil {
-		return err
-	}
-
-	// 构建和运行
-	err := r.runCommand(r.e2eDir, "podman-compose", "up", "--build", "--abort-on-container-exit", "--exit-code-from", "test-runner")
-	if err != nil {
-		logger.Error("E2E tests failed with Podman")
-		return err
-	}
-
-	logger.Success("E2E tests passed with Podman")
-
-	// 清理
-	r.runCommand(r.e2eDir, "podman-compose", "down", "-v")
-
-	return nil
-}
+// 容器相关功能已删除，只保留本地运行
 
 // runLocally 本地运行测试
 func (r *Runner) runLocally() error {
@@ -340,18 +295,15 @@ func showUsage() {
 	fmt.Println("Run e2e tests for sshole project")
 	fmt.Println("")
 	fmt.Println("Options:")
-	fmt.Println("  docker     Run tests using Docker")
-	fmt.Println("  podman     Run tests using Podman (default)")
-	fmt.Println("  local      Run tests locally (for development)")
+	fmt.Println("  local      Run tests locally (default)")
 	fmt.Println("  build      Only build the test binary")
 	fmt.Println("  clean      Clean up test artifacts")
 	fmt.Println("  help       Show this help message")
 	fmt.Println("")
 	fmt.Println("Examples:")
-	fmt.Println("  go run test/e2e/tools/runner.go podman    # Run tests with Podman")
-	fmt.Println("  go run test/e2e/tools/runner.go docker    # Run tests with Docker")
 	fmt.Println("  go run test/e2e/tools/runner.go local     # Run tests locally")
 	fmt.Println("  go run test/e2e/tools/runner.go build     # Only build binary")
+	fmt.Println("  go run test/e2e/tools/runner.go clean     # Clean up artifacts")
 }
 
 // main 主函数
@@ -361,7 +313,7 @@ func main() {
 	if len(os.Args) > 1 {
 		command = os.Args[1]
 	} else {
-		command = "podman" // 默认使用 podman
+		command = "local" // 默认使用本地运行
 	}
 
 	// 创建运行器
@@ -373,24 +325,6 @@ func main() {
 
 	// 执行相应命令
 	switch command {
-	case "docker":
-		if err := runner.buildTestBinary(); err != nil {
-			logger.Error("%v", err)
-			os.Exit(1)
-		}
-		if err := runner.runWithDocker(); err != nil {
-			logger.Error("%v", err)
-			os.Exit(1)
-		}
-	case "podman":
-		if err := runner.buildTestBinary(); err != nil {
-			logger.Error("%v", err)
-			os.Exit(1)
-		}
-		if err := runner.runWithPodman(); err != nil {
-			logger.Error("%v", err)
-			os.Exit(1)
-		}
 	case "local":
 		if err := runner.runLocally(); err != nil {
 			logger.Error("%v", err)
