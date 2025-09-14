@@ -78,7 +78,7 @@ func cmdFc(ctx context.Context) {
 
 	{
 		// 创建函数
-		logger.Info().Msg("create layer build function")
+		logger.Info().Msg("create hub function")
 
 		resp, err := fc3Client.GetFunction(tea.String(hubFunctionName), &fc20230330.GetFunctionRequest{})
 		if err != nil {
@@ -88,10 +88,17 @@ func cmdFc(ctx context.Context) {
 
 				input := &fc20230330.CreateFunctionInput{
 					FunctionName: tea.String(hubFunctionName),
-					Runtime:      tea.String("go1"),
-					Handler:      tea.String("/sshole"),
+					Runtime:      tea.String("custom.debian11"),
+					Handler:      tea.String("./sshole"),
 					Code: &fc20230330.InputCodeLocation{
 						ZipFile: tea.String(codeBase64),
+					},
+					CustomRuntimeConfig: &fc20230330.CustomRuntimeConfig{
+						Command: []*string{
+							tea.String("./sshole"),
+							tea.String("hub"),
+						},
+						Port: tea.Int32(9000),
 					},
 				}
 
