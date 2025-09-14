@@ -10,7 +10,9 @@ import (
 	"os"
 	"path/filepath"
 	"sshole/pkg/utils"
+	"time"
 
+	chclient "github.com/jpillora/chisel/client"
 	"github.com/rs/zerolog/log"
 )
 
@@ -70,7 +72,26 @@ func cmdAgent(ctx context.Context) {
 		Cmd: utils.Command("/opt/openssh/bin/ssh-keygen -A"),
 	})
 
-	utils.Execute(ctx, utils.ExecuteParams{
-		Cmd: utils.Command("/opt/openssh/sbin/sshd -D -e"),
+	go func() {
+		utils.Execute(ctx, utils.ExecuteParams{
+			Cmd: utils.Command("/opt/openssh/sbin/sshd -D -e"),
+		})
+	}()
+
+	time.Sleep(time.Second) // 等待 sshd 启动
+
+	c, err := chclient.NewClient(&chclient.Config{
+		Server:  "localhost:9000",
+		Remotes: []string{"R:23:localhost:22"}, // 本地 22 端口，映射到 hub 的 23 端口
 	})
+	if err != nil {
+		logger.Panic().Err(err).Msg("Failed to create chisel client")
+	}
+	if err := c.Start(ctx); err != nil {
+		logger.Panic().Err(err).Msg("Failed to start chisel client")
+	}
+	if err := c.Wait(); err != nil {
+		logger.Panic().Err(err).Msg("Failed to wait chisel client")
+	}
+
 }

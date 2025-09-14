@@ -14,7 +14,7 @@ func cmdEntry(ctx context.Context) {
 
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  "localhost:9000",
-		Remotes: []string{"8081:localhost:8000"},
+		Remotes: []string{"24:localhost:23"}, // 把服务器的 23 端口映射到本地的 24 端口
 	})
 	if err != nil {
 		logger.Panic().Err(err).Msg("Failed to create chisel client")
