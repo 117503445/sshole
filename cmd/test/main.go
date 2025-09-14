@@ -5,11 +5,14 @@ import (
 	"crypto/rsa"
 	"crypto/subtle"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os/exec"
 	"syscall"
+	"unsafe"
 
+	"github.com/creack/pty"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -39,14 +42,14 @@ func main() {
 	config.AddHostKey(signer)
 
 	// 监听端口
-	listener, err := net.Listen("tcp", "localhost:2222")
+	listener, err := net.Listen("tcp", "localhost:2223")
 	if err != nil {
 		log.Fatal("Failed to listen for connection:", err)
 	}
 	defer listener.Close()
 
-	fmt.Println("SSH server listening on localhost:2222")
-	fmt.Println("Connect with: ssh -p 2222 test@localhost (password: test)")
+	fmt.Println("SSH server listening on localhost:2223")
+	fmt.Println("Connect with: ssh -p 2223 test@localhost (password: test)")
 
 	for {
 		// 接受连接
@@ -91,7 +94,7 @@ func handleConnection(conn net.Conn, config *ssh.ServerConfig) {
 			continue
 		}
 
-		// 创建 PTY
+		// 创建 PTY 结构体
 		var pty PTY
 
 		// 处理会话请求
@@ -109,7 +112,7 @@ func handleConnection(conn net.Conn, config *ssh.ServerConfig) {
 					pty.IsSet = true
 					req.Reply(true, nil)
 				case "shell":
-					// 启动 shell
+					// 启动 shell（带真实 PTY）
 					go handleShell(channel, pty)
 					req.Reply(true, nil)
 				default:
@@ -126,28 +129,58 @@ type PTY struct {
 	IsSet  bool
 }
 
-func handleShell(channel ssh.Channel, pty PTY) {
+func handleShell(channel ssh.Channel, ptyReq PTY) {
 	defer channel.Close()
 
 	// 启动 bash shell
 	cmd := exec.Command("/bin/bash")
+	cmd.Env = append(cmd.Environ(), "TERM=xterm") // 设置终端类型
 
-	// 设置标准输入输出
-	cmd.Stdin = channel
-	cmd.Stdout = channel
-	cmd.Stderr = channel
+	// 启动带 PTY 的进程
+	ptmx, err := pty.Start(cmd)
+	if err != nil {
+		log.Printf("Failed to start pty: %v", err)
+		return
+	}
+	defer ptmx.Close()
 
-	// 如果有 PTY，则设置系统进程属性
-	if pty.IsSet {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setctty: true,
-			Setsid:  true,
+	// 如果客户端设置了窗口大小，我们设置 PTY 窗口大小
+	if ptyReq.IsSet {
+		window := struct {
+			Row uint16 // 行数
+			Col uint16 // 列数
+			X   uint16 // 像素宽（可忽略）
+			Y   uint16 // 像素高（可忽略）
+		}{
+			Row: uint16(ptyReq.Height),
+			Col: uint16(ptyReq.Width),
+			X:   0,
+			Y:   0,
+		}
+
+		// 调用 ioctl 设置窗口大小
+		_, _, errno := syscall.Syscall(
+			syscall.SYS_IOCTL,
+			ptmx.Fd(),
+			uintptr(syscall.TIOCSWINSZ),
+			uintptr(unsafe.Pointer(&window)),
+		)
+		if errno != 0 {
+			log.Printf("Failed to set window size: %v", errno)
 		}
 	}
 
-	// 运行命令
-	err := cmd.Run()
-	if err != nil {
-		log.Printf("Failed to run command: %v", err)
-	}
+	// 双向转发：SSH 通道 <--> PTY 主设备
+	go func() {
+		defer ptmx.Close()
+		io.Copy(ptmx, channel) // 用户输入 → PTY
+	}()
+
+	go func() {
+		defer channel.Close()
+		io.Copy(channel, ptmx) // PTY 输出 → 用户
+	}()
+
+	// 等待命令结束
+	_ = cmd.Wait()
 }

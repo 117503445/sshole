@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 
 	"github.com/gliderlabs/ssh"
@@ -13,6 +14,9 @@ func cmdAgent(ctx context.Context) {
 	logger.Info().Msg("Starting agent")
 
 	ssh.Handle(func(s ssh.Session) {
+
+		fmt.Println("handle")
+
 		// 启动一个 shell，例如 /bin/bash
 		cmd := exec.Command("/bin/bash")
 		cmd.Stdin = s
@@ -20,10 +24,10 @@ func cmdAgent(ctx context.Context) {
 		cmd.Stderr = s
 
 		// 设置终端环境（可选但推荐）
-		pty, _, isPty := s.Pty()
-		if isPty {
-			cmd.Env = append(cmd.Env, "TERM="+pty.Term)
-		}
+		// pty, _, isPty := s.Pty()
+		// if isPty {
+		// 	cmd.Env = append(cmd.Env, "TERM="+pty.Term)
+		// }
 
 		// 运行 shell
 		err := cmd.Run()
