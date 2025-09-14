@@ -6,7 +6,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func cmdHub(ctx context.Context) {
+func cmdEntry(ctx context.Context) {
 	logger := log.Ctx(ctx)
-	logger.Info().Msg("Starting hub")
+	logger.Info().Msg("Starting entry")
 }
