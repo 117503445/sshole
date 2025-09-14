@@ -2,11 +2,10 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/base64"
-	"io"
 	"os"
-	"path/filepath"
 	"sshole/pkg/clients"
 	"strings"
 
@@ -29,75 +28,50 @@ func cmdFc(ctx context.Context) {
 		logger.Panic().Err(err).Msg("Failed to get fc3 client")
 	}
 
-	// 添加文件到 zip 文件中
-	addFileToZip := func(zipWriter *zip.Writer, filename string) error {
-		fileToZip, err := os.Open(filename)
-		if err != nil {
-			return err
-		}
-		defer fileToZip.Close()
-
-		// 获取文件信息
-		info, err := fileToZip.Stat()
-		if err != nil {
-			return err
-		}
-
-		header, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return err
-		}
-
-		// 可选：设置压缩方式
-		// header.Method = zip.Store
-		header.Method = zip.Deflate
-
-		writer, err := zipWriter.CreateHeader(header)
-		if err != nil {
-			return err
-		}
-
-		_, err = io.Copy(writer, fileToZip)
-		return err
-	}
-
 	var codeBase64 string
 	{
-		// 1. 创建临时目录
-		tempDir, err := os.MkdirTemp("", "zip-example-*")
-		if err != nil {
-			panic(err)
-		}
-		defer os.RemoveAll(tempDir) // 清理临时目录
-
-		// 2. 定义 ZIP 文件路径（在临时目录中）
-		zipPath := filepath.Join(tempDir, "output.zip")
-		// 3. 创建 ZIP 文件
-		zipFile, err := os.Create(zipPath)
-		if err != nil {
-			log.Panic().Err(err).Send()
-		}
-		defer zipFile.Close()
-		// 4. 初始化 ZIP writer
-		zipWriter := zip.NewWriter(zipFile)
-
+		// 1. 获取当前可执行文件路径
 		exePath, err := os.Executable()
 		if err != nil {
-			logger.Panic().Err(err).Msg("Failed to get executable path")
+			log.Panic().Err(err).Msg("Failed to get executable path")
 		}
 
-		// 5. 要打包的文件列表
-		filesToZip := []string{
-			exePath,
+		// 2. 读取可执行文件内容到内存
+		exeData, err := os.ReadFile(exePath)
+		if err != nil {
+			log.Panic().Err(err).Msg("Failed to read executable file")
 		}
-		for _, filename := range filesToZip {
-			if err := addFileToZip(zipWriter, filename); err != nil {
-				log.Panic().Err(err).Send()
-			}
-		}
-		zipWriter.Close()
 
-		codeBase64 = base64.StdEncoding.EncodeToString(body)
+		// 3. 创建一个内存缓冲区来保存 ZIP 数据
+		var buf bytes.Buffer
+
+		// 4. 创建 ZIP writer，写入内存缓冲区
+		zipWriter := zip.NewWriter(&buf)
+		defer zipWriter.Close()
+
+		// 5. 向 ZIP 中添加文件（文件名设为 "binary" 或原文件名）
+		fileWriter, err := zipWriter.Create("sshole")
+		if err != nil {
+			log.Panic().Err(err).Msg("Failed to create zip entry")
+		}
+
+		// 6. 将二进制内容写入 ZIP 条目
+		_, err = fileWriter.Write(exeData)
+		if err != nil {
+			log.Panic().Err(err).Msg("Failed to write file to zip")
+		}
+
+		// 7. 关闭 ZIP 写入器（关键！确保数据被刷新）
+		err = zipWriter.Close()
+		if err != nil {
+			log.Panic().Err(err).Msg("Failed to close zip writer")
+		}
+
+		// 8. 获取 ZIP 的完整字节数据
+		zipData := buf.Bytes()
+
+		// 9. 编码为 base64
+		codeBase64 = base64.StdEncoding.EncodeToString(zipData)
 	}
 
 	const hubFunctionName = "_sshole_hub"
