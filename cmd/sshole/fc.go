@@ -49,28 +49,38 @@ func cmdFc(ctx context.Context) {
 		zipWriter := zip.NewWriter(&buf)
 		defer zipWriter.Close()
 
-		// 5. 向 ZIP 中添加文件（文件名设为 "binary" 或原文件名）
-		fileWriter, err := zipWriter.Create("sshole")
-		if err != nil {
-			log.Panic().Err(err).Msg("Failed to create zip entry")
+		// 5. 创建自定义 FileHeader，设置权限为 0755（-rwxr-xr-x）
+		header := &zip.FileHeader{
+			Name:   "sshole",    // ZIP 内部文件名
+			Method: zip.Deflate, // 压缩方式（可选）
 		}
 
-		// 6. 将二进制内容写入 ZIP 条目
+		// 👇 关键：设置 Unix 权限为 0755（可执行！）
+		// 注意：必须使用 *nix 风格权限位，且高位要设为目录标志（040000）或普通文件（0100000）
+		header.SetMode(0755) // 这会自动转换为正确的外部文件属性格式
+
+		// 6. 使用 CreateHeader 创建带有权限的 ZIP 条目
+		fileWriter, err := zipWriter.CreateHeader(header)
+		if err != nil {
+			log.Panic().Err(err).Msg("Failed to create zip entry with header")
+		}
+
+		// 7. 将二进制内容写入 ZIP 条目
 		_, err = fileWriter.Write(exeData)
 		if err != nil {
 			log.Panic().Err(err).Msg("Failed to write file to zip")
 		}
 
-		// 7. 关闭 ZIP 写入器（关键！确保数据被刷新）
+		// 8. 关闭 ZIP 写入器（关键！确保数据被刷新）
 		err = zipWriter.Close()
 		if err != nil {
 			log.Panic().Err(err).Msg("Failed to close zip writer")
 		}
 
-		// 8. 获取 ZIP 的完整字节数据
+		// 9. 获取 ZIP 的完整字节数据
 		zipData := buf.Bytes()
 
-		// 9. 编码为 base64
+		// 10. 编码为 base64
 		codeBase64 = base64.StdEncoding.EncodeToString(zipData)
 	}
 
@@ -114,8 +124,7 @@ func cmdFc(ctx context.Context) {
 					Interface("resp", resp).
 					Msg("create function")
 			} else {
-				logger.Info().
-					Msg("function not exists")
+				logger.Panic().Err(err).Msg("get function failed")
 			}
 		} else {
 			logger.Info().
