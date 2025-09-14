@@ -1,18 +1,17 @@
 package main
 
 import (
-	"context"
-	"sshole/pkg/common"
-
+	"github.com/117503445/goutils"
+	"github.com/alecthomas/kong"
 	"github.com/rs/zerolog/log"
 )
 
 func main() {
-	ctx := context.Background()
-	ctx = common.InitLogger(ctx, common.InitLoggerOption{
-		Component: "main",
-	})
+	goutils.InitZeroLog()
 
-	logger := log.Ctx(ctx)
-	logger.Info().Msg("Starting sshole")
+	kongCtx := kong.Parse(&cli)
+	log.Info().Interface("cli", cli).Msg("Starting sshole")
+	if err := kongCtx.Run(); err != nil {
+		log.Panic().Err(err).Msg("run failed")
+	}
 }

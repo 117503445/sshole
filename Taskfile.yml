@@ -7,9 +7,8 @@ tasks:
   default:
     cmds:
       - clear
-      - task: build
+      - task: dev
 
-  build:
-    desc: "Build all components using build script"
+  dev:
     cmds:
-      - go run ./cmd/sshole
+      - go run ./cmd/sshole hub
