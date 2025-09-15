@@ -19,6 +19,7 @@ func (c *commandHub) Run() error {
 }
 
 type commandAgent struct {
+	HubServer string `env:"HUB_SERVER" default:"localhost:9000"`
 }
 
 func (c *commandAgent) Run() error {
@@ -32,6 +33,7 @@ func (c *commandAgent) Run() error {
 }
 
 type commandEntry struct {
+	HubServer string `env:"HUB_SERVER" default:"localhost:9000"`
 }
 
 func (c *commandEntry) Run() error {

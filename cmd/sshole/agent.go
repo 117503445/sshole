@@ -125,7 +125,7 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 	startSSHD()
 
 	c, err := chclient.NewClient(&chclient.Config{
-		Server:  "localhost:9000",
+		Server:  cli.Agent.HubServer,
 		Remotes: []string{"R:23:localhost:22"}, // 本地 22 端口，映射到 hub 的 23 端口
 	})
 	if err != nil {
