@@ -110,6 +110,8 @@ func cmdFc(ctx context.Context) {
 						},
 						Port: tea.Int32(9000),
 					},
+					Timeout:             tea.Int32(86400),
+					InstanceConcurrency: tea.Int32(200),
 				}
 
 				resp, err := fc3Client.CreateFunction(&fc20230330.CreateFunctionRequest{
@@ -123,6 +125,15 @@ func cmdFc(ctx context.Context) {
 				logger.Info().
 					Interface("resp", resp).
 					Msg("create function")
+
+				_, err = fc3Client.PutConcurrencyConfig(tea.String(hubFunctionName), &fc20230330.PutConcurrencyConfigRequest{
+					Body: &fc20230330.PutConcurrencyInput{
+						ReservedConcurrency: tea.Int64(1),
+					},
+				})
+				if err != nil {
+					logger.Panic().Err(err).Msg("put concurrency config failed")
+				}
 			} else {
 				logger.Panic().Err(err).Msg("get function failed")
 			}
