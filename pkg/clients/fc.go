@@ -85,8 +85,8 @@ func GetFcClient(ctx context.Context, params GetFcClientParams) (*fc.Client, err
 
 	endpoint := fmt.Sprintf("%s.%s.fc.aliyuncs.com", params.AccountID, params.Region)
 
-	// client, err := fc.NewClient(endpoint, "2016-08-15", params.AccessKeyId, params.AccessKeySecret, fc.WithTransport(&http.Transport{MaxIdleConnsPerHost: 100}))
-	client, err := fc.NewClient(endpoint, "2021-04-06", params.AccessKeyId, params.AccessKeySecret, fc.WithTransport(&http.Transport{MaxIdleConnsPerHost: 100}))
+	client, err := fc.NewClient(endpoint, "2016-08-15", params.AccessKeyId, params.AccessKeySecret, fc.WithTransport(&http.Transport{MaxIdleConnsPerHost: 100}))
+	// client, err := fc.NewClient(endpoint, "2021-04-06", params.AccessKeyId, params.AccessKeySecret, fc.WithTransport(&http.Transport{MaxIdleConnsPerHost: 100}))
 	if err != nil {
 		// logger.Panic().Err(err).Msg("Failed to create fc client")
 		return nil, err

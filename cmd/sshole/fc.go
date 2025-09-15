@@ -9,6 +9,7 @@ import (
 	"os"
 	"sshole/pkg/clients"
 	"strings"
+	"time"
 
 	fc "github.com/aliyun/fc-go-sdk"
 
@@ -162,7 +163,7 @@ func cmdFc(ctx context.Context) {
 			ServiceName:  tea.String(cli.Fc.ServiceName),
 			FunctionName: tea.String(cli.Fc.FunctionName),
 			InstanceID:   tea.String(cli.Fc.InstanceID),
-			Command:      []string{"pwd"},
+			Command:      []string{"curl", "-o", "/sshole", "https://webdav.cloud.117503445.top/public-writable/sshole"},
 			Stdin:        false,
 			Stdout:       true,
 			Stderr:       true,
@@ -180,5 +181,7 @@ func cmdFc(ctx context.Context) {
 		if err != nil {
 			logger.Panic().Err(err).Msg("Failed to exec")
 		}
+
+		time.Sleep(time.Second * 1)
 	}
 }
