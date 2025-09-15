@@ -86,8 +86,8 @@ func cmdFc(ctx context.Context) {
 
 	const hubFunctionName = "_sshole_hub"
 
+	// 创建函数
 	{
-		// 创建函数
 		logger.Info().Msg("create hub function")
 
 		resp, err := fc3Client.GetFunction(tea.String(hubFunctionName), &fc20230330.GetFunctionRequest{})
@@ -143,5 +143,7 @@ func cmdFc(ctx context.Context) {
 				Msg("function exists")
 		}
 	}
+
+	
 
 }

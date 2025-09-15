@@ -51,6 +51,9 @@ type commandFc struct {
 	AccessKeyId     string `env:"FC_ACCESS_KEY_ID"`
 	AccessKeySecret string `env:"FC_ACCESS_KEY_SECRET"`
 	// SecurityToken   string
+
+	FunctionName string `env:"FUNCTION_NAME"`
+	InstanceID   string `env:"INSTANCE_ID"`
 }
 
 func (c *commandFc) Run() error {
