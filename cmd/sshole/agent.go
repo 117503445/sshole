@@ -41,6 +41,7 @@ func cmdAgent(ctx context.Context) {
 		}
 
 		if err := goutils.WriteText("/opt/openssh/etc/sshd_config", fmt.Sprintf(`Port %v
+PermitRootLogin yes
 Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 			logger.Panic().Err(err).Msg("write sshd_config failed")
 		}
@@ -93,6 +94,9 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 						os.MkdirAll(target, os.FileMode(header.Mode))
 						logger.Info().Str("dir", target).Msg("create dir")
 					case tar.TypeReg:
+						if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+							panic("无法创建目录: " + err.Error())
+						}
 						// 创建文件
 						file, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.FileMode(header.Mode))
 						if err != nil {
@@ -105,7 +109,7 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 					}
 				}
 			}
-		}else{
+		} else {
 			logger.Info().Msg("Using cached openssh")
 		}
 
@@ -126,7 +130,7 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  cli.Agent.HubServer,
-		Remotes: []string{"R:23:localhost:22"}, // 本地 22 端口，映射到 hub 的 23 端口
+		Remotes: []string{fmt.Sprintf("R:23:localhost:%v", sshdPort)}, // 本地 22222 端口，映射到 hub 的 23 端口
 	})
 	if err != nil {
 		logger.Panic().Err(err).Msg("Failed to create chisel client")

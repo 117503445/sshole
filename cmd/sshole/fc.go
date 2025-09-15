@@ -163,7 +163,8 @@ func cmdFc(ctx context.Context) {
 			ServiceName:  tea.String(cli.Fc.ServiceName),
 			FunctionName: tea.String(cli.Fc.FunctionName),
 			InstanceID:   tea.String(cli.Fc.InstanceID),
-			Command:      []string{"curl", "-o", "/sshole", "https://webdav.cloud.117503445.top/public-writable/sshole"},
+			// Command:      []string{"curl", "-o", "/sshole", "https://webdav.cloud.117503445.top/public-writable/sshole"},
+			Command:      []string{"bash", "-c", "[ -f /sshole ] || curl -o /sshole https://webdav.cloud.117503445.top/public-writable/sshole && chmod +x /sshole && HUB_SERVER=https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run /sshole agent"},
 			Stdin:        false,
 			Stdout:       true,
 			Stderr:       true,
@@ -182,6 +183,6 @@ func cmdFc(ctx context.Context) {
 			logger.Panic().Err(err).Msg("Failed to exec")
 		}
 
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Second * 20)
 	}
 }
