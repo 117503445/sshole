@@ -10,14 +10,46 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sshole/pkg/utils"
+	"syscall"
 	"time"
 
 	"github.com/117503445/goutils"
 	chclient "github.com/jpillora/chisel/client"
 	"github.com/rs/zerolog/log"
 )
+
+// terminateProcess 安全终止进程
+func terminateProcess(cmd *exec.Cmd) {
+	if cmd.Process == nil {
+		return // 进程未启动或已结束
+	}
+
+	// 尝试优雅终止
+	if err := cmd.Process.Signal(syscall.SIGTERM); err == nil {
+		// 等待几秒让进程优雅退出
+		done := make(chan error, 1)
+		go func() {
+			done <- cmd.Wait() // 避免阻塞
+		}()
+		select {
+		case <-done:
+			fmt.Println("Process exited gracefully.")
+		case <-time.After(3 * time.Second):
+			// 超时，强制 kill
+			fmt.Println("Graceful termination failed, force killing...")
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait() // 等待回收资源，避免僵尸进程
+		}
+	} else {
+		// 无法发送 SIGTERM，直接强制 kill
+		fmt.Println("Cannot send SIGTERM, force killing...")
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}
+}
 
 func isPortListening(port int) bool {
 	address := fmt.Sprintf(":%d", port)
@@ -33,6 +65,8 @@ func cmdAgent(ctx context.Context) {
 	logger.Info().Msg("Starting agent")
 
 	sshdPort := 22222
+
+	var sshCmd *exec.Cmd
 
 	startSSHD := func() {
 		if isPortListening(sshdPort) {
@@ -117,9 +151,10 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 			Cmd: utils.Command("/opt/openssh/bin/ssh-keygen -A"),
 		})
 
+		sshCmd = utils.Command("/opt/openssh/sbin/sshd -D -e")
 		go func() {
 			utils.Execute(ctx, utils.ExecuteParams{
-				Cmd: utils.Command("/opt/openssh/sbin/sshd -D -e"),
+				Cmd: sshCmd,
 			})
 		}()
 
@@ -127,6 +162,16 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 	}
 
 	startSSHD()
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Recovered from panic: %v\n", r)
+			// 终止子进程
+			terminateProcess(sshCmd)
+		} else {
+			// 正常退出时也清理（可选）
+			terminateProcess(sshCmd)
+		}
+	}()
 
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  cli.Agent.HubServer,
