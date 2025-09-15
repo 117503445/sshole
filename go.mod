@@ -19,6 +19,7 @@ require (
 	github.com/alibabacloud-go/alibabacloud-gateway-spi v0.0.5 // indirect
 	github.com/alibabacloud-go/debug v1.0.1 // indirect
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.7 // indirect
+	github.com/aliyun/fc-go-sdk v0.0.0-20230313060359-3a1b2ede1e1e // indirect
 	github.com/andrew-d/go-termutil v0.0.0-20150726205930-009166a695a2 // indirect
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 // indirect
 	github.com/clbanning/mxj/v2 v2.7.0 // indirect
@@ -43,4 +44,5 @@ require (
 	golang.org/x/sys v0.36.0 // indirect
 	golang.org/x/text v0.29.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
+	gopkg.in/resty.v1 v1.11.0 // indirect
 )

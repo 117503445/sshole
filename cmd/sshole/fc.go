@@ -5,9 +5,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"os"
 	"sshole/pkg/clients"
 	"strings"
+
+	fc "github.com/aliyun/fc-go-sdk"
 
 	fc20230330 "github.com/alibabacloud-go/fc-20230330/v4/client"
 	"github.com/alibabacloud-go/tea/tea"
@@ -144,6 +147,38 @@ func cmdFc(ctx context.Context) {
 		}
 	}
 
-	
+	{
+		fcClient, err := clients.GetFcClient(ctx, clients.GetFcClientParams{
+			Region:          cli.Fc.Region,
+			AccessKeyId:     cli.Fc.AccessKeyId,
+			AccessKeySecret: cli.Fc.AccessKeySecret,
+			AccountID:       cli.Fc.AccountID,
+		})
+		if err != nil {
+			logger.Panic().Err(err).Msg("Failed to get fc client")
+		}
 
+		input := &fc.InstanceExecInput{
+			ServiceName:  tea.String(cli.Fc.ServiceName),
+			FunctionName: tea.String(cli.Fc.FunctionName),
+			InstanceID:   tea.String(cli.Fc.InstanceID),
+			Command:      []string{"pwd"},
+			Stdin:        false,
+			Stdout:       true,
+			Stderr:       true,
+			TTY:          false,
+			IdleTimeout:  tea.Int(120),
+		}
+		input.OnStdout(func(data []byte) {
+			fmt.Printf("STDOUT: %s\n", data)
+		})
+		input.OnStderr(func(data []byte) {
+			fmt.Printf("STDERR: %s\n", data)
+		})
+
+		_, err = fcClient.InstanceExec(input)
+		if err != nil {
+			logger.Panic().Err(err).Msg("Failed to exec")
+		}
+	}
 }
