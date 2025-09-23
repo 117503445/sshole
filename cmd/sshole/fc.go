@@ -9,9 +9,9 @@ import (
 	"os"
 	"sshole/pkg/clients"
 	"strings"
-	"time"
 
 	fc "github.com/aliyun/fc-go-sdk"
+	chclient "github.com/jpillora/chisel/client"
 
 	fc20230330 "github.com/alibabacloud-go/fc-20230330/v4/client"
 	"github.com/alibabacloud-go/tea/tea"
@@ -148,7 +148,7 @@ func cmdFc(ctx context.Context) {
 		}
 	}
 
-	{
+	go func() {
 		fcClient, err := clients.GetFcClient(ctx, clients.GetFcClientParams{
 			Region:          cli.Fc.Region,
 			AccessKeyId:     cli.Fc.AccessKeyId,
@@ -164,12 +164,12 @@ func cmdFc(ctx context.Context) {
 			FunctionName: tea.String(cli.Fc.FunctionName),
 			InstanceID:   tea.String(cli.Fc.InstanceID),
 			// Command:      []string{"curl", "-o", "/sshole", "https://webdav.cloud.117503445.top/public-writable/sshole"},
-			Command:      []string{"bash", "-c", "[ -f /sshole ] || curl -o /sshole https://webdav.cloud.117503445.top/public-writable/sshole && chmod +x /sshole && HUB_SERVER=https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run /sshole agent"},
-			Stdin:        false,
-			Stdout:       true,
-			Stderr:       true,
-			TTY:          false,
-			IdleTimeout:  tea.Int(120),
+			Command:     []string{"bash", "-c", "[ -f /sshole ] || curl -o /sshole https://webdav.cloud.117503445.top/public-writable/sshole && chmod +x /sshole && HUB_SERVER=https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run /sshole agent"},
+			Stdin:       false,
+			Stdout:      true,
+			Stderr:      true,
+			TTY:         false,
+			IdleTimeout: tea.Int(120),
 		}
 		input.OnStdout(func(data []byte) {
 			fmt.Printf("STDOUT: %s\n", data)
@@ -182,7 +182,19 @@ func cmdFc(ctx context.Context) {
 		if err != nil {
 			logger.Panic().Err(err).Msg("Failed to exec")
 		}
+	}()
 
-		time.Sleep(time.Second * 20)
+	c, err := chclient.NewClient(&chclient.Config{
+		Server:  "https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run",
+		Remotes: []string{"24:localhost:23"}, // 把服务器的 23 端口映射到本地的 24 端口
+	})
+	if err != nil {
+		logger.Panic().Err(err).Msg("Failed to create chisel client")
+	}
+	if err := c.Start(ctx); err != nil {
+		logger.Panic().Err(err).Msg("Failed to start chisel client")
+	}
+	if err := c.Wait(); err != nil {
+		logger.Panic().Err(err).Msg("Failed to wait chisel client")
 	}
 }
