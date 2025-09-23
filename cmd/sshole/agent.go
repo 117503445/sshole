@@ -74,12 +74,6 @@ func cmdAgent(ctx context.Context) {
 			return
 		}
 
-		if err := goutils.WriteText("/opt/openssh/etc/sshd_config", fmt.Sprintf(`Port %v
-PermitRootLogin yes
-Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
-			logger.Panic().Err(err).Msg("write sshd_config failed")
-		}
-
 		fileSSHTarGz := "/tmp/openssh.tar.gz"
 
 		if !goutils.FileExists(fileSSHTarGz) {
@@ -147,6 +141,12 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 			logger.Info().Msg("Using cached openssh")
 		}
 
+		if err := goutils.WriteText("/opt/openssh/etc/sshd_config", fmt.Sprintf(`Port %v
+PermitRootLogin yes
+Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
+			logger.Panic().Err(err).Msg("write sshd_config failed")
+		}
+
 		utils.Execute(ctx, utils.ExecuteParams{
 			Cmd: utils.Command("/opt/openssh/bin/ssh-keygen -A"),
 		})
@@ -158,7 +158,13 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 			})
 		}()
 
-		time.Sleep(time.Second) // 等待 sshd 启动
+		for {
+			time.Sleep(time.Second) // 等待 sshd 启动
+			if isPortListening(sshdPort) {
+				logger.Info().Msg("sshd is already listening")
+				return
+			}
+		}
 	}
 
 	startSSHD()
@@ -173,6 +179,8 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 		}
 	}()
 
+	logger.Info().Msg("Starting chisel, localhost:22222 -> hub:23")
+
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  cli.Agent.HubServer,
 		Remotes: []string{fmt.Sprintf("R:23:localhost:%v", sshdPort)}, // 本地 22222 端口，映射到 hub 的 23 端口
@@ -186,5 +194,4 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 	if err := c.Wait(); err != nil {
 		logger.Panic().Err(err).Msg("Failed to wait chisel client")
 	}
-
 }

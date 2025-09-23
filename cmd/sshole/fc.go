@@ -9,6 +9,7 @@ import (
 	"os"
 	"sshole/pkg/clients"
 	"strings"
+	"time"
 
 	fc "github.com/aliyun/fc-go-sdk"
 	chclient "github.com/jpillora/chisel/client"
@@ -169,7 +170,7 @@ func cmdFc(ctx context.Context) {
 			Stdout:      true,
 			Stderr:      true,
 			TTY:         false,
-			IdleTimeout: tea.Int(120),
+			IdleTimeout: tea.Int(86400),
 		}
 		input.OnStdout(func(data []byte) {
 			fmt.Printf("STDOUT: %s\n", data)
@@ -184,6 +185,7 @@ func cmdFc(ctx context.Context) {
 		}
 	}()
 
+	time.Sleep(time.Second * 10)
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  "https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run",
 		Remotes: []string{"24:localhost:23"}, // 把服务器的 23 端口映射到本地的 24 端口
