@@ -14,3 +14,7 @@ tasks:
       - go run ./cmd/sshole hub
       # - go run ./cmd/sshole agent
       # - go run ./cmd/sshole entry
+
+  gen:
+    cmds:
+      - buf generate
