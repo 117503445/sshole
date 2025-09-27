@@ -3,23 +3,26 @@ module sshole
 go 1.25.1
 
 require (
+	connectrpc.com/connect v1.19.0
 	github.com/117503445/goutils v0.0.0-20250824044823-d1d255ec734f
 	github.com/alecthomas/kong v1.12.1
 	github.com/alibabacloud-go/darabonba-openapi/v2 v2.1.12
 	github.com/alibabacloud-go/fc-20230330/v4 v4.4.1
 	github.com/alibabacloud-go/tea v1.3.12
 	github.com/aliyun/credentials-go v1.4.7
+	github.com/aliyun/fc-go-sdk v0.0.0-20230313060359-3a1b2ede1e1e
 	github.com/creack/pty v1.1.24
 	github.com/jpillora/chisel v1.11.3
 	github.com/rs/zerolog v1.34.0
 	golang.org/x/crypto v0.42.0
+	golang.org/x/net v0.43.0
+	google.golang.org/protobuf v1.36.9
 )
 
 require (
 	github.com/alibabacloud-go/alibabacloud-gateway-spi v0.0.5 // indirect
 	github.com/alibabacloud-go/debug v1.0.1 // indirect
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.7 // indirect
-	github.com/aliyun/fc-go-sdk v0.0.0-20230313060359-3a1b2ede1e1e // indirect
 	github.com/andrew-d/go-termutil v0.0.0-20150726205930-009166a695a2 // indirect
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 // indirect
 	github.com/clbanning/mxj/v2 v2.7.0 // indirect
@@ -39,7 +42,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce // indirect
-	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
 	golang.org/x/text v0.29.0 // indirect

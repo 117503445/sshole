@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package pkg.rpc.v1;
+
+option go_package = "sshole/pkg/rpc/v1;rpcv1";
+
+message CreateConnRequest {
+  string name = 1;
+}
+
+message CreateConnResponse {
+  string greeting = 1;
+}
+
+service HoleService {
+  rpc CreateConn(CreateConnRequest) returns (CreateConnResponse) {}
+}
