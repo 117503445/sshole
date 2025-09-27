@@ -143,6 +143,7 @@ func cmdAgent(ctx context.Context) {
 
 		if err := goutils.WriteText("/opt/openssh/etc/sshd_config", fmt.Sprintf(`Port %v
 PermitRootLogin yes
+PasswordAuthentication no
 Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 			logger.Panic().Err(err).Msg("write sshd_config failed")
 		}
