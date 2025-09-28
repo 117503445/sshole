@@ -95,7 +95,7 @@ func cmdFc(ctx context.Context) {
 	{
 		logger.Info().Msg("create hub function")
 
-		resp, err := fc3Client.GetFunction(tea.String(hubFunctionName), &fc20230330.GetFunctionRequest{})
+		getResp, err := fc3Client.GetFunction(tea.String(hubFunctionName), &fc20230330.GetFunctionRequest{})
 		if err != nil {
 			if strings.Contains(err.Error(), "FunctionNotFound") {
 				logger.Info().
@@ -144,8 +144,20 @@ func cmdFc(ctx context.Context) {
 			}
 		} else {
 			logger.Info().
-				Interface("resp", resp).
+				Interface("getResp", getResp).
 				Msg("function exists")
+
+			updateResp, err := fc3Client.UpdateFunction(tea.String(hubFunctionName), &fc20230330.UpdateFunctionRequest{
+				Body: &fc20230330.UpdateFunctionInput{
+					Code: &fc20230330.InputCodeLocation{ZipFile: tea.String(codeBase64)},
+				},
+			})
+			if err != nil {
+				logger.Panic().Err(err).Msg("update function failed")
+			}
+			logger.Info().
+				Interface("updateResp", updateResp).
+				Msg("update function")
 		}
 	}
 
