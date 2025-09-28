@@ -10,7 +10,6 @@ import (
 	"os"
 	"sshole/pkg/clients"
 	"strings"
-	"time"
 
 	fc "github.com/aliyun/fc-go-sdk"
 	chclient "github.com/jpillora/chisel/client"
@@ -228,6 +227,9 @@ func cmdFc(ctx context.Context) {
 		logger.Panic().Err(err).Msg("Failed to chmod temporary file")
 	}
 
+	// 创建一个通道用于通知 chisel 已经启动
+	chiselStarted := make(chan bool, 1)
+
 	go func() {
 		fcClient, err := clients.GetFcClient(ctx, clients.GetFcClientParams{
 			Region:          cli.Fc.Region,
@@ -251,7 +253,17 @@ func cmdFc(ctx context.Context) {
 			IdleTimeout:  tea.Int(86400),
 		}
 		input.OnStdout(func(data []byte) {
+
 			fmt.Printf("STDOUT: %s\n", data)
+			go func() {
+				// 检查输出是否包含 "Starting chisel"
+				if strings.Contains(string(data), "Starting chisel") {
+					select {
+					case chiselStarted <- true:
+					default:
+					}
+				}
+			}()
 		})
 		input.OnStderr(func(data []byte) {
 			fmt.Printf("STDERR: %s\n", data)
@@ -264,8 +276,11 @@ func cmdFc(ctx context.Context) {
 		}
 	}()
 
-	time.Sleep(time.Second * 10)
-	
+	logger.Info().Msg("wait agent chisel")
+	// 等待 chisel 启动完成
+	<-chiselStarted
+	logger.Info().Msg("agent chisel started")
+
 	fmt.Printf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i %s root@localhost -p 24\n", tmpFile.Name())
 	logger.Info().
 		Int("HubPort", int(acquireResp.Msg.Port)).
