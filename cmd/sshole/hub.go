@@ -80,7 +80,7 @@ func (s *HoleServer) AcquireConnection(
 	checker := func() error {
 		if req.Msg.Id == "" {
 			msg := "Invalid id"
-			err := fmt.Errorf(msg)
+			err := fmt.Errorf("%s", msg)
 			log.Error().Err(err).Msg(msg)
 			return err
 		}
