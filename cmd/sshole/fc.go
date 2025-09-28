@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -33,6 +34,8 @@ func cmdFc(ctx context.Context) {
 		logger.Panic().Err(err).Msg("Failed to get fc3 client")
 	}
 
+	// exeData 的 sha256
+	var codeHash string
 	var codeBase64 string
 	{
 		// 1. 获取当前可执行文件路径
@@ -46,6 +49,9 @@ func cmdFc(ctx context.Context) {
 		if err != nil {
 			log.Panic().Err(err).Msg("Failed to read executable file")
 		}
+
+		sha256hash := sha256.Sum256(exeData)
+		codeHash = fmt.Sprintf("%x", sha256hash)
 
 		// 3. 创建一个内存缓冲区来保存 ZIP 数据
 		var buf bytes.Buffer
@@ -117,6 +123,9 @@ func cmdFc(ctx context.Context) {
 					},
 					Timeout:             tea.Int32(86400),
 					InstanceConcurrency: tea.Int32(200),
+					EnvironmentVariables: map[string]*string{
+						"CODE_HASH": tea.String(codeHash),
+					},
 				}
 
 				resp, err := fc3Client.CreateFunction(&fc20230330.CreateFunctionRequest{
@@ -147,17 +156,34 @@ func cmdFc(ctx context.Context) {
 				Interface("getResp", getResp).
 				Msg("function exists")
 
-			updateResp, err := fc3Client.UpdateFunction(tea.String(hubFunctionName), &fc20230330.UpdateFunctionRequest{
-				Body: &fc20230330.UpdateFunctionInput{
-					Code: &fc20230330.InputCodeLocation{ZipFile: tea.String(codeBase64)},
-				},
-			})
-			if err != nil {
-				logger.Panic().Err(err).Msg("update function failed")
+			// 检查环境变量中的 CODE_HASH 是否一致
+			needUpdate := true
+			if getResp.Body.EnvironmentVariables != nil {
+				if existingCodeHash, ok := getResp.Body.EnvironmentVariables["CODE_HASH"]; ok {
+					if *existingCodeHash == codeHash {
+						needUpdate = false
+					}
+				}
 			}
-			logger.Info().
-				Interface("updateResp", updateResp).
-				Msg("update function")
+
+			if needUpdate {
+				updateResp, err := fc3Client.UpdateFunction(tea.String(hubFunctionName), &fc20230330.UpdateFunctionRequest{
+					Body: &fc20230330.UpdateFunctionInput{
+						Code: &fc20230330.InputCodeLocation{ZipFile: tea.String(codeBase64)},
+						EnvironmentVariables: map[string]*string{
+							"CODE_HASH": tea.String(codeHash),
+						},
+					},
+				})
+				if err != nil {
+					logger.Panic().Err(err).Msg("update function failed")
+				}
+				logger.Info().
+					Interface("updateResp", updateResp).
+					Msg("update function")
+			} else {
+				logger.Info().Msg("code hash matches, skipping update")
+			}
 		}
 	}
 
@@ -177,7 +203,7 @@ func cmdFc(ctx context.Context) {
 			FunctionName: tea.String(cli.Fc.FunctionName),
 			InstanceID:   tea.String(cli.Fc.InstanceID),
 			// Command:      []string{"curl", "-o", "/sshole", "https://webdav.cloud.117503445.top/public-writable/sshole"},
-			Command:     []string{"bash", "-c", "[ -f /sshole ] || curl -o /sshole https://webdav.cloud.117503445.top/public-writable/sshole && chmod +x /sshole && HUB_SERVER=https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run /sshole agent"},
+			Command:     []string{"bash", "-c", "[ -f /sshole ] || curl -o /sshole https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run/bin && chmod +x /sshole && HUB_SERVER=https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run /sshole agent"},
 			Stdin:       false,
 			Stdout:      true,
 			Stderr:      true,
@@ -191,6 +217,7 @@ func cmdFc(ctx context.Context) {
 			fmt.Printf("STDERR: %s\n", data)
 		})
 
+		logger.Info().Msg("exec")
 		_, err = fcClient.InstanceExec(input)
 		if err != nil {
 			logger.Panic().Err(err).Msg("Failed to exec")
@@ -198,6 +225,9 @@ func cmdFc(ctx context.Context) {
 	}()
 
 	time.Sleep(time.Second * 10)
+
+	fmt.Println("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@localhost -p 24")
+
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  "https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run",
 		Remotes: []string{"24:localhost:23"}, // 把服务器的 23 端口映射到本地的 24 端口
