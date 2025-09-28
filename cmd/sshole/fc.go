@@ -193,6 +193,8 @@ func cmdFc(ctx context.Context) {
 		}
 	}
 
+	
+
 	// 生成连接ID
 	connId := goutils.UUID4()
 
@@ -229,6 +231,8 @@ func cmdFc(ctx context.Context) {
 	}
 
 	fmt.Printf("SSH Private Key Path: %s\n", tmpFile.Name())
+ 
+	fmt.Printf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i %s root@localhost -p 24\n", tmpFile.Name())
 
 	go func() {
 		fcClient, err := clients.GetFcClient(ctx, clients.GetFcClientParams{
@@ -268,8 +272,6 @@ func cmdFc(ctx context.Context) {
 	}()
 
 	time.Sleep(time.Second * 10)
-
-	fmt.Println("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@localhost -p 24")
 
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  "https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run",
