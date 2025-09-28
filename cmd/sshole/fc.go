@@ -208,6 +208,7 @@ func cmdFc(ctx context.Context) {
 	if err != nil {
 		logger.Panic().Err(err).Msg("Failed to acquire connection")
 	}
+	logger.Info().Interface("Msg", acquireResp.Msg).Send()
 
 	// 将SSH私钥写入临时文件
 	tmpFile, err := os.CreateTemp("", "sshole_private_key_*.pem")
@@ -219,6 +220,12 @@ func cmdFc(ctx context.Context) {
 	_, err = tmpFile.WriteString(acquireResp.Msg.SshPrivateKey)
 	if err != nil {
 		logger.Panic().Err(err).Msg("Failed to write private key to temporary file")
+	}
+
+	// 设置权限
+	err = os.Chmod(tmpFile.Name(), 0600)
+	if err != nil {
+		logger.Panic().Err(err).Msg("Failed to chmod temporary file")
 	}
 
 	fmt.Printf("SSH Private Key Path: %s\n", tmpFile.Name())

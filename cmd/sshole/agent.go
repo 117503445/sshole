@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +20,9 @@ import (
 	"github.com/117503445/goutils"
 	chclient "github.com/jpillora/chisel/client"
 	"github.com/rs/zerolog/log"
+	rpcv1 "sshole/pkg/rpc/v1"
+	"sshole/pkg/rpc/v1/rpcv1connect"
+	"connectrpc.com/connect"
 )
 
 // terminateProcess 安全终止进程
@@ -60,9 +64,62 @@ func isPortListening(port int) bool {
 	conn.Close()
 	return true // 能连接 = 正在监听
 }
+
+func setupSSHKeys(ctx context.Context, connId string) {
+	logger := log.Ctx(ctx)
+
+	// 从环境变量获取hub地址，默认使用当前实现中的地址
+	hubUrl := os.Getenv("HUB_SERVER")
+	if hubUrl == "" {
+		hubUrl = "https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run"
+	}
+	
+	logger.Info().Str("hubUrl", hubUrl).Msg("Connecting to hub")
+	
+	// 创建hub客户端
+	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, hubUrl)
+
+	// 调用AcquireConnection RPC获取连接信息
+	acquireReq := connect.NewRequest(&rpcv1.AcquireConnectionRequest{
+		Id: connId,
+	})
+
+	acquireResp, err := hubClient.AcquireConnection(context.Background(), acquireReq)
+	if err != nil {
+		logger.Panic().Err(err).Msg("Failed to acquire connection from hub")
+	}
+
+	// 将公钥写入指定位置
+	// TODO: 追加
+	authorizedKeysPath := "/root/.ssh/authorized_keys"
+	if err := os.MkdirAll(filepath.Dir(authorizedKeysPath), 0700); err != nil {
+		logger.Panic().Err(err).Msg("Failed to create .ssh directory")
+	}
+
+	if err := goutils.WriteText(authorizedKeysPath, acquireResp.Msg.SshPublicKey); err != nil {
+		logger.Panic().Err(err).Msg("Failed to write authorized_keys")
+	}
+	
+	// 设置正确的权限
+	if err := os.Chmod(authorizedKeysPath, 0600); err != nil {
+		logger.Panic().Err(err).Msg("Failed to chmod authorized_keys")
+	}
+	
+	logger.Info().Str("path", authorizedKeysPath).Msg("SSH public key written successfully")
+}
+
 func cmdAgent(ctx context.Context) {
 	logger := log.Ctx(ctx)
 	logger.Info().Msg("Starting agent")
+
+	// 从环境变量获取连接ID
+	connId := os.Getenv("CONN_ID")
+	if connId != "" {
+		logger.Info().Str("connId", connId).Msg("Setting up SSH keys with conn ID")
+		setupSSHKeys(ctx, connId)
+	} else {
+		logger.Warn().Msg("CONN_ID not found in environment variables")
+	}
 
 	sshdPort := 22222
 
@@ -144,6 +201,8 @@ func cmdAgent(ctx context.Context) {
 		if err := goutils.WriteText("/opt/openssh/etc/sshd_config", fmt.Sprintf(`Port %v
 PermitRootLogin yes
 PasswordAuthentication no
+PubkeyAuthentication yes
+AuthorizedKeysFile /root/.ssh/authorized_keys
 Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 			logger.Panic().Err(err).Msg("write sshd_config failed")
 		}
