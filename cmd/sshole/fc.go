@@ -228,10 +228,6 @@ func cmdFc(ctx context.Context) {
 		logger.Panic().Err(err).Msg("Failed to chmod temporary file")
 	}
 
-	fmt.Printf("SSH Private Key Path: %s\n", tmpFile.Name())
-
-	fmt.Printf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i %s root@localhost -p 24\n", tmpFile.Name())
-
 	go func() {
 		fcClient, err := clients.GetFcClient(ctx, clients.GetFcClientParams{
 			Region:          cli.Fc.Region,
@@ -269,7 +265,8 @@ func cmdFc(ctx context.Context) {
 	}()
 
 	time.Sleep(time.Second * 10)
-
+	
+	fmt.Printf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i %s root@localhost -p 24\n", tmpFile.Name())
 	logger.Info().
 		Int("HubPort", int(acquireResp.Msg.Port)).
 		Int("LocalPort", 24).
