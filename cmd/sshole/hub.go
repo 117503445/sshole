@@ -12,6 +12,7 @@ import (
 	"os"
 	rpcv1 "sshole/pkg/rpc/v1"
 	"sshole/pkg/rpc/v1/rpcv1connect"
+	"sync"
 
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
@@ -69,6 +70,7 @@ func newConn() conn {
 type HoleServer struct {
 	// id -> conn
 	conns map[string]conn
+	mu    sync.RWMutex
 }
 
 func (s *HoleServer) AcquireConnection(
@@ -90,7 +92,35 @@ func (s *HoleServer) AcquireConnection(
 		return nil, err
 	}
 
-	res := connect.NewResponse(&rpcv1.AcquireConnectionResponse{})
+	// 初始化conns映射
+	s.mu.Lock()
+	if s.conns == nil {
+		s.conns = make(map[string]conn)
+	}
+	s.mu.Unlock()
+
+	// 先尝试读取锁来检查连接是否存在
+	s.mu.RLock()
+	c, exists := s.conns[req.Msg.Id]
+	s.mu.RUnlock()
+
+	// 如果不存在，则创建新的连接
+	if !exists {
+		s.mu.Lock()
+		// 双重检查，确保在获取写锁后仍需要创建连接
+		c, exists = s.conns[req.Msg.Id]
+		if !exists {
+			c = newConn()
+			s.conns[req.Msg.Id] = c
+		}
+		s.mu.Unlock()
+	}
+
+	res := connect.NewResponse(&rpcv1.AcquireConnectionResponse{
+		Port: c.Port,
+		SshPublicKey: c.SshPublicKey,
+		SshPrivateKey: c.SshPrivateKey,
+	})
 	return res, nil
 }
 
