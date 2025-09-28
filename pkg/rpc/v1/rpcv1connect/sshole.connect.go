@@ -33,13 +33,14 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// HoleServiceCreateConnProcedure is the fully-qualified name of the HoleService's CreateConn RPC.
-	HoleServiceCreateConnProcedure = "/pkg.rpc.v1.HoleService/CreateConn"
+	// HoleServiceAcquireConnectionProcedure is the fully-qualified name of the HoleService's
+	// AcquireConnection RPC.
+	HoleServiceAcquireConnectionProcedure = "/pkg.rpc.v1.HoleService/AcquireConnection"
 )
 
 // HoleServiceClient is a client for the pkg.rpc.v1.HoleService service.
 type HoleServiceClient interface {
-	CreateConn(context.Context, *connect.Request[v1.CreateConnRequest]) (*connect.Response[v1.CreateConnResponse], error)
+	AcquireConnection(context.Context, *connect.Request[v1.AcquireConnectionRequest]) (*connect.Response[v1.AcquireConnectionResponse], error)
 }
 
 // NewHoleServiceClient constructs a client for the pkg.rpc.v1.HoleService service. By default, it
@@ -53,10 +54,10 @@ func NewHoleServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 	baseURL = strings.TrimRight(baseURL, "/")
 	holeServiceMethods := v1.File_pkg_rpc_v1_sshole_proto.Services().ByName("HoleService").Methods()
 	return &holeServiceClient{
-		createConn: connect.NewClient[v1.CreateConnRequest, v1.CreateConnResponse](
+		acquireConnection: connect.NewClient[v1.AcquireConnectionRequest, v1.AcquireConnectionResponse](
 			httpClient,
-			baseURL+HoleServiceCreateConnProcedure,
-			connect.WithSchema(holeServiceMethods.ByName("CreateConn")),
+			baseURL+HoleServiceAcquireConnectionProcedure,
+			connect.WithSchema(holeServiceMethods.ByName("AcquireConnection")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -64,17 +65,17 @@ func NewHoleServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 
 // holeServiceClient implements HoleServiceClient.
 type holeServiceClient struct {
-	createConn *connect.Client[v1.CreateConnRequest, v1.CreateConnResponse]
+	acquireConnection *connect.Client[v1.AcquireConnectionRequest, v1.AcquireConnectionResponse]
 }
 
-// CreateConn calls pkg.rpc.v1.HoleService.CreateConn.
-func (c *holeServiceClient) CreateConn(ctx context.Context, req *connect.Request[v1.CreateConnRequest]) (*connect.Response[v1.CreateConnResponse], error) {
-	return c.createConn.CallUnary(ctx, req)
+// AcquireConnection calls pkg.rpc.v1.HoleService.AcquireConnection.
+func (c *holeServiceClient) AcquireConnection(ctx context.Context, req *connect.Request[v1.AcquireConnectionRequest]) (*connect.Response[v1.AcquireConnectionResponse], error) {
+	return c.acquireConnection.CallUnary(ctx, req)
 }
 
 // HoleServiceHandler is an implementation of the pkg.rpc.v1.HoleService service.
 type HoleServiceHandler interface {
-	CreateConn(context.Context, *connect.Request[v1.CreateConnRequest]) (*connect.Response[v1.CreateConnResponse], error)
+	AcquireConnection(context.Context, *connect.Request[v1.AcquireConnectionRequest]) (*connect.Response[v1.AcquireConnectionResponse], error)
 }
 
 // NewHoleServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -84,16 +85,16 @@ type HoleServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewHoleServiceHandler(svc HoleServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	holeServiceMethods := v1.File_pkg_rpc_v1_sshole_proto.Services().ByName("HoleService").Methods()
-	holeServiceCreateConnHandler := connect.NewUnaryHandler(
-		HoleServiceCreateConnProcedure,
-		svc.CreateConn,
-		connect.WithSchema(holeServiceMethods.ByName("CreateConn")),
+	holeServiceAcquireConnectionHandler := connect.NewUnaryHandler(
+		HoleServiceAcquireConnectionProcedure,
+		svc.AcquireConnection,
+		connect.WithSchema(holeServiceMethods.ByName("AcquireConnection")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/pkg.rpc.v1.HoleService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case HoleServiceCreateConnProcedure:
-			holeServiceCreateConnHandler.ServeHTTP(w, r)
+		case HoleServiceAcquireConnectionProcedure:
+			holeServiceAcquireConnectionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -103,6 +104,6 @@ func NewHoleServiceHandler(svc HoleServiceHandler, opts ...connect.HandlerOption
 // UnimplementedHoleServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedHoleServiceHandler struct{}
 
-func (UnimplementedHoleServiceHandler) CreateConn(context.Context, *connect.Request[v1.CreateConnRequest]) (*connect.Response[v1.CreateConnResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pkg.rpc.v1.HoleService.CreateConn is not implemented"))
+func (UnimplementedHoleServiceHandler) AcquireConnection(context.Context, *connect.Request[v1.AcquireConnectionRequest]) (*connect.Response[v1.AcquireConnectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pkg.rpc.v1.HoleService.AcquireConnection is not implemented"))
 }

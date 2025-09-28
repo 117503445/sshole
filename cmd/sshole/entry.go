@@ -21,14 +21,14 @@ func cmdEntry(ctx context.Context) {
 			http.DefaultClient,
 			"http://localhost:9000",
 		)
-		res, err := client.CreateConn(
+		res, err := client.AcquireConnection(
 			context.Background(),
-			connect.NewRequest(&rpcv1.CreateConnRequest{Name: "Jane"}),
+			connect.NewRequest(&rpcv1.AcquireConnectionRequest{}),
 		)
 		if err != nil {
 			logger.Panic().Err(err).Msg("Failed to create conn")
 		}
-		logger.Info().Str("greeting", res.Msg.Greeting).Send()
+		logger.Info().Interface("Msg", res.Msg).Send()
 	}
 
 	c, err := chclient.NewClient(&chclient.Config{

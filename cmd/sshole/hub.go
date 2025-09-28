@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	rpcv1 "sshole/pkg/rpc/v1"
@@ -11,23 +15,82 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
 	chserver "github.com/jpillora/chisel/server"
 )
 
-type HoleServer struct{}
+type conn struct {
+	Port          int32
+	SshPublicKey  string
+	SshPrivateKey string
+}
 
-func (s *HoleServer) CreateConn(
+func newConn() conn {
+	// port: 随机一个本地可用的 tcp port
+	// ssh key: 随机生成一个 ed25519 key
+
+	// 生成随机端口
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		panic(err)
+	}
+	defer listener.Close()
+
+	port := listener.Addr().(*net.TCPAddr).Port
+
+	// 生成 ed25519 SSH 密钥对
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	// 将密钥转换为 SSH 格式
+	sshPubKey, err := ssh.NewPublicKey(pubKey)
+	if err != nil {
+		panic(err)
+	}
+
+	// 将私钥转换为OpenSSH格式
+	sshPrivKey, err := ssh.MarshalPrivateKey(privKey, "")
+	if err != nil {
+		panic(err)
+	}
+
+	return conn{
+		Port:          int32(port),
+		SshPublicKey:  string(ssh.MarshalAuthorizedKey(sshPubKey)),
+		SshPrivateKey: string(pem.EncodeToMemory(sshPrivKey)),
+	}
+}
+
+type HoleServer struct {
+	// id -> conn
+	conns map[string]conn
+}
+
+func (s *HoleServer) AcquireConnection(
 	ctx context.Context,
-	req *connect.Request[rpcv1.CreateConnRequest],
-) (*connect.Response[rpcv1.CreateConnResponse], error) {
-	log.Info().Msg("CreateConn RPC")
-	res := connect.NewResponse(&rpcv1.CreateConnResponse{
-		Greeting: fmt.Sprintf("Hello, %s!", req.Msg.Name),
-	})
-	res.Header().Set("Greet-Version", "v1")
+	req *connect.Request[rpcv1.AcquireConnectionRequest],
+) (*connect.Response[rpcv1.AcquireConnectionResponse], error) {
+	log.Info().Msg("AcquireConnection RPC")
+
+	checker := func() error {
+		if req.Msg.Id == "" {
+			msg := "Invalid id"
+			err := fmt.Errorf(msg)
+			log.Error().Err(err).Msg(msg)
+			return err
+		}
+		return nil
+	}
+	if err := checker(); err != nil {
+		return nil, err
+	}
+
+	res := connect.NewResponse(&rpcv1.AcquireConnectionResponse{})
 	return res, nil
 }
 

@@ -21,27 +21,27 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type CreateConnRequest struct {
+type AcquireConnectionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *CreateConnRequest) Reset() {
-	*x = CreateConnRequest{}
+func (x *AcquireConnectionRequest) Reset() {
+	*x = AcquireConnectionRequest{}
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CreateConnRequest) String() string {
+func (x *AcquireConnectionRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CreateConnRequest) ProtoMessage() {}
+func (*AcquireConnectionRequest) ProtoMessage() {}
 
-func (x *CreateConnRequest) ProtoReflect() protoreflect.Message {
+func (x *AcquireConnectionRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -53,39 +53,42 @@ func (x *CreateConnRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CreateConnRequest.ProtoReflect.Descriptor instead.
-func (*CreateConnRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use AcquireConnectionRequest.ProtoReflect.Descriptor instead.
+func (*AcquireConnectionRequest) Descriptor() ([]byte, []int) {
 	return file_pkg_rpc_v1_sshole_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *CreateConnRequest) GetName() string {
+func (x *AcquireConnectionRequest) GetId() string {
 	if x != nil {
-		return x.Name
+		return x.Id
 	}
 	return ""
 }
 
-type CreateConnResponse struct {
+type AcquireConnectionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Greeting      string                 `protobuf:"bytes,1,opt,name=greeting,proto3" json:"greeting,omitempty"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Port          int32                  `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
+	SshPublicKey  string                 `protobuf:"bytes,3,opt,name=ssh_public_key,json=sshPublicKey,proto3" json:"ssh_public_key,omitempty"`
+	SshPrivateKey string                 `protobuf:"bytes,4,opt,name=ssh_private_key,json=sshPrivateKey,proto3" json:"ssh_private_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *CreateConnResponse) Reset() {
-	*x = CreateConnResponse{}
+func (x *AcquireConnectionResponse) Reset() {
+	*x = AcquireConnectionResponse{}
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CreateConnResponse) String() string {
+func (x *AcquireConnectionResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CreateConnResponse) ProtoMessage() {}
+func (*AcquireConnectionResponse) ProtoMessage() {}
 
-func (x *CreateConnResponse) ProtoReflect() protoreflect.Message {
+func (x *AcquireConnectionResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -97,14 +100,35 @@ func (x *CreateConnResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CreateConnResponse.ProtoReflect.Descriptor instead.
-func (*CreateConnResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use AcquireConnectionResponse.ProtoReflect.Descriptor instead.
+func (*AcquireConnectionResponse) Descriptor() ([]byte, []int) {
 	return file_pkg_rpc_v1_sshole_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *CreateConnResponse) GetGreeting() string {
+func (x *AcquireConnectionResponse) GetMessage() string {
 	if x != nil {
-		return x.Greeting
+		return x.Message
+	}
+	return ""
+}
+
+func (x *AcquireConnectionResponse) GetPort() int32 {
+	if x != nil {
+		return x.Port
+	}
+	return 0
+}
+
+func (x *AcquireConnectionResponse) GetSshPublicKey() string {
+	if x != nil {
+		return x.SshPublicKey
+	}
+	return ""
+}
+
+func (x *AcquireConnectionResponse) GetSshPrivateKey() string {
+	if x != nil {
+		return x.SshPrivateKey
 	}
 	return ""
 }
@@ -114,14 +138,16 @@ var File_pkg_rpc_v1_sshole_proto protoreflect.FileDescriptor
 const file_pkg_rpc_v1_sshole_proto_rawDesc = "" +
 	"\n" +
 	"\x17pkg/rpc/v1/sshole.proto\x12\n" +
-	"pkg.rpc.v1\"'\n" +
-	"\x11CreateConnRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"0\n" +
-	"\x12CreateConnResponse\x12\x1a\n" +
-	"\bgreeting\x18\x01 \x01(\tR\bgreeting2\\\n" +
-	"\vHoleService\x12M\n" +
-	"\n" +
-	"CreateConn\x12\x1d.pkg.rpc.v1.CreateConnRequest\x1a\x1e.pkg.rpc.v1.CreateConnResponse\"\x00B\x19Z\x17sshole/pkg/rpc/v1;rpcv1b\x06proto3"
+	"pkg.rpc.v1\"*\n" +
+	"\x18AcquireConnectionRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x97\x01\n" +
+	"\x19AcquireConnectionResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\x12\x12\n" +
+	"\x04port\x18\x02 \x01(\x05R\x04port\x12$\n" +
+	"\x0essh_public_key\x18\x03 \x01(\tR\fsshPublicKey\x12&\n" +
+	"\x0fssh_private_key\x18\x04 \x01(\tR\rsshPrivateKey2q\n" +
+	"\vHoleService\x12b\n" +
+	"\x11AcquireConnection\x12$.pkg.rpc.v1.AcquireConnectionRequest\x1a%.pkg.rpc.v1.AcquireConnectionResponse\"\x00B\x19Z\x17sshole/pkg/rpc/v1;rpcv1b\x06proto3"
 
 var (
 	file_pkg_rpc_v1_sshole_proto_rawDescOnce sync.Once
@@ -137,12 +163,12 @@ func file_pkg_rpc_v1_sshole_proto_rawDescGZIP() []byte {
 
 var file_pkg_rpc_v1_sshole_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_pkg_rpc_v1_sshole_proto_goTypes = []any{
-	(*CreateConnRequest)(nil),  // 0: pkg.rpc.v1.CreateConnRequest
-	(*CreateConnResponse)(nil), // 1: pkg.rpc.v1.CreateConnResponse
+	(*AcquireConnectionRequest)(nil),  // 0: pkg.rpc.v1.AcquireConnectionRequest
+	(*AcquireConnectionResponse)(nil), // 1: pkg.rpc.v1.AcquireConnectionResponse
 }
 var file_pkg_rpc_v1_sshole_proto_depIdxs = []int32{
-	0, // 0: pkg.rpc.v1.HoleService.CreateConn:input_type -> pkg.rpc.v1.CreateConnRequest
-	1, // 1: pkg.rpc.v1.HoleService.CreateConn:output_type -> pkg.rpc.v1.CreateConnResponse
+	0, // 0: pkg.rpc.v1.HoleService.AcquireConnection:input_type -> pkg.rpc.v1.AcquireConnectionRequest
+	1, // 1: pkg.rpc.v1.HoleService.AcquireConnection:output_type -> pkg.rpc.v1.AcquireConnectionResponse
 	1, // [1:2] is the sub-list for method output_type
 	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
