@@ -193,7 +193,7 @@ func cmdFc(ctx context.Context) {
 		}
 	}
 
-	
+
 
 	// 生成连接ID
 	connId := goutils.UUID4()
@@ -249,7 +249,6 @@ func cmdFc(ctx context.Context) {
 			ServiceName:  tea.String(cli.Fc.ServiceName),
 			FunctionName: tea.String(cli.Fc.FunctionName),
 			InstanceID:   tea.String(cli.Fc.InstanceID),
-			// Command:      []string{"curl", "-o", "/sshole", "https://webdav.cloud.117503445.top/public-writable/sshole"},
 			Command:     []string{"bash", "-c", fmt.Sprintf("[ -f /sshole ] || curl -o /sshole https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run/bin && chmod +x /sshole && HUB_SERVER=https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run CONN_ID=%v /sshole agent", connId)},
 			Stdin:       false,
 			Stdout:      true,
