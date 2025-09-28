@@ -193,8 +193,6 @@ func cmdFc(ctx context.Context) {
 		}
 	}
 
-
-
 	// 生成连接ID
 	connId := goutils.UUID4()
 
@@ -231,7 +229,7 @@ func cmdFc(ctx context.Context) {
 	}
 
 	fmt.Printf("SSH Private Key Path: %s\n", tmpFile.Name())
- 
+
 	fmt.Printf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i %s root@localhost -p 24\n", tmpFile.Name())
 
 	go func() {
@@ -249,12 +247,12 @@ func cmdFc(ctx context.Context) {
 			ServiceName:  tea.String(cli.Fc.ServiceName),
 			FunctionName: tea.String(cli.Fc.FunctionName),
 			InstanceID:   tea.String(cli.Fc.InstanceID),
-			Command:     []string{"bash", "-c", fmt.Sprintf("[ -f /sshole ] || curl -o /sshole https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run/bin && chmod +x /sshole && HUB_SERVER=https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run CONN_ID=%v /sshole agent", connId)},
-			Stdin:       false,
-			Stdout:      true,
-			Stderr:      true,
-			TTY:         false,
-			IdleTimeout: tea.Int(86400),
+			Command:      []string{"bash", "-c", fmt.Sprintf("[ -f /sshole ] || curl -o /sshole https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run/bin && chmod +x /sshole && HUB_SERVER=https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run CONN_ID=%v /sshole agent", connId)},
+			Stdin:        false,
+			Stdout:       true,
+			Stderr:       true,
+			TTY:          false,
+			IdleTimeout:  tea.Int(86400),
 		}
 		input.OnStdout(func(data []byte) {
 			fmt.Printf("STDOUT: %s\n", data)
@@ -272,9 +270,13 @@ func cmdFc(ctx context.Context) {
 
 	time.Sleep(time.Second * 10)
 
+	logger.Info().
+		Int("HubPort", int(acquireResp.Msg.Port)).
+		Int("LocalPort", 24).
+		Msg("start chisel")
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  "https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run",
-		Remotes: []string{"24:localhost:23"}, // 把服务器的 23 端口映射到本地的 24 端口
+		Remotes: []string{fmt.Sprintf("24:localhost:%d", acquireResp.Msg.Port)}, // 把服务器的指定端口映射到本地的 24 端口
 	})
 	if err != nil {
 		logger.Panic().Err(err).Msg("Failed to create chisel client")

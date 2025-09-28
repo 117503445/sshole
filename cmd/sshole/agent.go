@@ -17,12 +17,12 @@ import (
 	"syscall"
 	"time"
 
+	"connectrpc.com/connect"
 	"github.com/117503445/goutils"
 	chclient "github.com/jpillora/chisel/client"
 	"github.com/rs/zerolog/log"
 	rpcv1 "sshole/pkg/rpc/v1"
 	"sshole/pkg/rpc/v1/rpcv1connect"
-	"connectrpc.com/connect"
 )
 
 // terminateProcess 安全终止进程
@@ -65,7 +65,7 @@ func isPortListening(port int) bool {
 	return true // 能连接 = 正在监听
 }
 
-func setupSSHKeys(ctx context.Context, connId string) {
+func setupSSHKeys(ctx context.Context, connId string) int32 {
 	logger := log.Ctx(ctx)
 
 	// 从环境变量获取hub地址，默认使用当前实现中的地址
@@ -73,9 +73,9 @@ func setupSSHKeys(ctx context.Context, connId string) {
 	if hubUrl == "" {
 		hubUrl = "https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run"
 	}
-	
+
 	logger.Info().Str("hubUrl", hubUrl).Msg("Connecting to hub")
-	
+
 	// 创建hub客户端
 	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, hubUrl)
 
@@ -99,13 +99,16 @@ func setupSSHKeys(ctx context.Context, connId string) {
 	if err := goutils.WriteText(authorizedKeysPath, acquireResp.Msg.SshPublicKey); err != nil {
 		logger.Panic().Err(err).Msg("Failed to write authorized_keys")
 	}
-	
+
 	// 设置正确的权限
 	if err := os.Chmod(authorizedKeysPath, 0600); err != nil {
 		logger.Panic().Err(err).Msg("Failed to chmod authorized_keys")
 	}
-	
+
 	logger.Info().Str("path", authorizedKeysPath).Msg("SSH public key written successfully")
+
+	// 返回RPC获取的端口号
+	return acquireResp.Msg.Port
 }
 
 func cmdAgent(ctx context.Context) {
@@ -114,9 +117,10 @@ func cmdAgent(ctx context.Context) {
 
 	// 从环境变量获取连接ID
 	connId := os.Getenv("CONN_ID")
+	var port int32
 	if connId != "" {
 		logger.Info().Str("connId", connId).Msg("Setting up SSH keys with conn ID")
-		setupSSHKeys(ctx, connId)
+		port = setupSSHKeys(ctx, connId)
 	} else {
 		logger.Warn().Msg("CONN_ID not found in environment variables")
 	}
@@ -239,11 +243,14 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 		}
 	}()
 
-	logger.Info().Msg("Starting chisel, localhost:22222 -> hub:23")
+	logger.Info().
+		Int("HubPort", int(port)).
+		Int("AgentPort", sshdPort).
+		Msg("Starting chisel")
 
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  cli.Agent.HubServer,
-		Remotes: []string{fmt.Sprintf("R:23:localhost:%v", sshdPort)}, // 本地 22222 端口，映射到 hub 的 23 端口
+		Remotes: []string{fmt.Sprintf("R:%d:localhost:%v", port, sshdPort)}, // 本地 22222 端口，映射到 hub 的指定端口
 	})
 	if err != nil {
 		logger.Panic().Err(err).Msg("Failed to create chisel client")
