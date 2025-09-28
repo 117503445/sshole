@@ -117,8 +117,8 @@ func (s *HoleServer) AcquireConnection(
 	}
 
 	res := connect.NewResponse(&rpcv1.AcquireConnectionResponse{
-		Port: c.Port,
-		SshPublicKey: c.SshPublicKey,
+		Port:          c.Port,
+		SshPublicKey:  c.SshPublicKey,
 		SshPrivateKey: c.SshPrivateKey,
 	})
 	return res, nil
