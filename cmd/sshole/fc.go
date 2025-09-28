@@ -15,6 +15,12 @@ import (
 	fc "github.com/aliyun/fc-go-sdk"
 	chclient "github.com/jpillora/chisel/client"
 
+	"net/http"
+	rpcv1 "sshole/pkg/rpc/v1"
+	"sshole/pkg/rpc/v1/rpcv1connect"
+
+	"connectrpc.com/connect"
+	"github.com/117503445/goutils"
 	fc20230330 "github.com/alibabacloud-go/fc-20230330/v4/client"
 	"github.com/alibabacloud-go/tea/tea"
 	"github.com/rs/zerolog/log"
@@ -187,6 +193,36 @@ func cmdFc(ctx context.Context) {
 		}
 	}
 
+	// 生成连接ID
+	connId := goutils.UUID4()
+
+	// 调用hub的AcquireConnection RPC
+	hubUrl := "https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run"
+	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, hubUrl)
+
+	acquireReq := connect.NewRequest(&rpcv1.AcquireConnectionRequest{
+		Id: connId,
+	})
+
+	acquireResp, err := hubClient.AcquireConnection(context.Background(), acquireReq)
+	if err != nil {
+		logger.Panic().Err(err).Msg("Failed to acquire connection")
+	}
+
+	// 将SSH私钥写入临时文件
+	tmpFile, err := os.CreateTemp("", "sshole_private_key_*.pem")
+	if err != nil {
+		logger.Panic().Err(err).Msg("Failed to create temporary file")
+	}
+	defer tmpFile.Close()
+
+	_, err = tmpFile.WriteString(acquireResp.Msg.SshPrivateKey)
+	if err != nil {
+		logger.Panic().Err(err).Msg("Failed to write private key to temporary file")
+	}
+
+	fmt.Printf("SSH Private Key Path: %s\n", tmpFile.Name())
+
 	go func() {
 		fcClient, err := clients.GetFcClient(ctx, clients.GetFcClientParams{
 			Region:          cli.Fc.Region,
@@ -203,7 +239,7 @@ func cmdFc(ctx context.Context) {
 			FunctionName: tea.String(cli.Fc.FunctionName),
 			InstanceID:   tea.String(cli.Fc.InstanceID),
 			// Command:      []string{"curl", "-o", "/sshole", "https://webdav.cloud.117503445.top/public-writable/sshole"},
-			Command:     []string{"bash", "-c", "[ -f /sshole ] || curl -o /sshole https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run/bin && chmod +x /sshole && HUB_SERVER=https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run /sshole agent"},
+			Command:     []string{"bash", "-c", fmt.Sprintf("[ -f /sshole ] || curl -o /sshole https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run/bin && chmod +x /sshole && HUB_SERVER=https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run CONN_ID=%v /sshole agent", connId)},
 			Stdin:       false,
 			Stdout:      true,
 			Stderr:      true,
