@@ -192,6 +192,20 @@ func cmdFc(ctx context.Context) {
 		}
 	}
 
+	hubUrl := ""
+	{
+		result, err := fc3Client.ListTriggers(tea.String(hubFunctionName), &fc20230330.ListTriggersRequest{})
+		if err != nil {
+			logger.Panic().Err(err).Msg("list triggers failed")
+		}
+		logger.Info().Interface("result", result).Msg("list triggers")
+		if len(result.Body.Triggers) == 0 {
+			logger.Panic().Msg("no triggers found")
+		}
+		hubUrl = tea.StringValue(result.Body.Triggers[0].HttpTrigger.UrlInternet)
+		logger.Info().Str("hubUrl", hubUrl).Send()
+	}
+
 	// 生成连接ID
 	connId := goutils.UUID4()
 
