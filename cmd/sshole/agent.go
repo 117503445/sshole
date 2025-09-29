@@ -68,16 +68,11 @@ func isPortListening(port int) bool {
 func setupSSHKeys(ctx context.Context, connId string) int32 {
 	logger := log.Ctx(ctx)
 
-	// 从环境变量获取hub地址，默认使用当前实现中的地址
-	hubUrl := os.Getenv("HUB_SERVER")
-	if hubUrl == "" {
-		hubUrl = "https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run"
-	}
-
-	logger.Info().Str("hubUrl", hubUrl).Msg("Connecting to hub")
+	// 从环境变量获取hub地址
+	logger.Info().Msg("Connecting to hub")
 
 	// 创建hub客户端
-	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, hubUrl)
+	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, getHubUrl(ctx))
 
 	// 调用AcquireConnection RPC获取连接信息
 	acquireReq := connect.NewRequest(&rpcv1.AcquireConnectionRequest{
@@ -249,7 +244,7 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 		Msg("Starting chisel")
 
 	c, err := chclient.NewClient(&chclient.Config{
-		Server:  cli.Agent.HubServer,
+		Server:  getHubUrl(ctx),
 		Remotes: []string{fmt.Sprintf("R:%d:localhost:%v", port, sshdPort)}, // 本地 22222 端口，映射到 hub 的指定端口
 	})
 	if err != nil {
@@ -261,4 +256,14 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 	if err := c.Wait(); err != nil {
 		logger.Panic().Err(err).Msg("Failed to wait chisel client")
 	}
+}
+
+func getHubUrl(ctx context.Context) string {
+	logger := log.Ctx(ctx)
+
+	hubUrl := os.Getenv("HUB_SERVER")
+	if hubUrl == "" {
+		logger.Panic().Msg("HUB_SERVER not found in environment variables")
+	}
+	return hubUrl
 }

@@ -210,7 +210,6 @@ func cmdFc(ctx context.Context) {
 	connId := goutils.UUID4()
 
 	// 调用hub的AcquireConnection RPC
-	hubUrl := "https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run"
 	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, hubUrl)
 
 	acquireReq := connect.NewRequest(&rpcv1.AcquireConnectionRequest{
@@ -259,7 +258,7 @@ func cmdFc(ctx context.Context) {
 			ServiceName:  tea.String(cli.Fc.ServiceName),
 			FunctionName: tea.String(cli.Fc.FunctionName),
 			InstanceID:   tea.String(cli.Fc.InstanceID),
-			Command:      []string{"bash", "-c", fmt.Sprintf("[ -f /sshole ] || curl -o /sshole https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run/bin && chmod +x /sshole && HUB_SERVER=https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run CONN_ID=%v /sshole agent", connId)},
+			Command:      []string{"bash", "-c", fmt.Sprintf("[ -f /sshole ] || curl -o /sshole %s/bin && chmod +x /sshole && HUB_SERVER=%s CONN_ID=%v /sshole agent", hubUrl, hubUrl, connId)},
 			Stdin:        false,
 			Stdout:       true,
 			Stderr:       true,
@@ -301,7 +300,7 @@ func cmdFc(ctx context.Context) {
 		Int("LocalPort", 24).
 		Msg("start chisel")
 	c, err := chclient.NewClient(&chclient.Config{
-		Server:  "https://sshole-hub-eflksbzknn.cn-hangzhou.fcapp.run",
+		Server:  hubUrl,
 		Remotes: []string{fmt.Sprintf("24:localhost:%d", acquireResp.Msg.Port)}, // 把服务器的指定端口映射到本地的 24 端口
 	})
 	if err != nil {
