@@ -106,7 +106,11 @@ func cmdFc(ctx context.Context) {
 	createNewAuth := func() string {
 		u := goutils.UUID4()
 		a := fmt.Sprintf("%s:%s", "root", u)
-		return strings.ReplaceAll(a, "-", "")
+		auth := strings.ReplaceAll(a, "-", "")
+		logger.Info().
+			Str("auth", auth).
+			Msg("create new auth")
+		return auth
 	}
 	// 创建函数
 	{

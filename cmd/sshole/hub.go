@@ -193,6 +193,7 @@ func cmdHub(ctx context.Context) {
 	config := chserver.Config{
 		Reverse: true, // 启用反向模式
 		Proxy:   "http://localhost:9001",
+		Auth:    getAuth(ctx),
 	}
 
 	// 创建服务器实例
@@ -213,4 +214,11 @@ func cmdHub(ctx context.Context) {
 	if err := s.Wait(); err != nil {
 		logger.Panic().Err(err).Msg("Server closed unexpectedly")
 	}
+}
+
+func getAuth(ctx context.Context) string {
+	logger := log.Ctx(ctx)
+	auth := os.Getenv("AUTH")
+	logger.Info().Str("AUTH", auth).Send()
+	return auth
 }
