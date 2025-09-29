@@ -68,9 +68,10 @@ func (x *AcquireConnectionRequest) GetId() string {
 type AcquireConnectionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	Port          int32                  `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
-	SshPublicKey  string                 `protobuf:"bytes,3,opt,name=ssh_public_key,json=sshPublicKey,proto3" json:"ssh_public_key,omitempty"`
-	SshPrivateKey string                 `protobuf:"bytes,4,opt,name=ssh_private_key,json=sshPrivateKey,proto3" json:"ssh_private_key,omitempty"`
+	Auth          string                 `protobuf:"bytes,2,opt,name=auth,proto3" json:"auth,omitempty"`
+	Port          int32                  `protobuf:"varint,3,opt,name=port,proto3" json:"port,omitempty"`
+	SshPublicKey  string                 `protobuf:"bytes,4,opt,name=ssh_public_key,json=sshPublicKey,proto3" json:"ssh_public_key,omitempty"`
+	SshPrivateKey string                 `protobuf:"bytes,5,opt,name=ssh_private_key,json=sshPrivateKey,proto3" json:"ssh_private_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -112,6 +113,13 @@ func (x *AcquireConnectionResponse) GetMessage() string {
 	return ""
 }
 
+func (x *AcquireConnectionResponse) GetAuth() string {
+	if x != nil {
+		return x.Auth
+	}
+	return ""
+}
+
 func (x *AcquireConnectionResponse) GetPort() int32 {
 	if x != nil {
 		return x.Port
@@ -140,12 +148,13 @@ const file_pkg_rpc_v1_sshole_proto_rawDesc = "" +
 	"\x17pkg/rpc/v1/sshole.proto\x12\n" +
 	"pkg.rpc.v1\"*\n" +
 	"\x18AcquireConnectionRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x97\x01\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xab\x01\n" +
 	"\x19AcquireConnectionResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12\x12\n" +
-	"\x04port\x18\x02 \x01(\x05R\x04port\x12$\n" +
-	"\x0essh_public_key\x18\x03 \x01(\tR\fsshPublicKey\x12&\n" +
-	"\x0fssh_private_key\x18\x04 \x01(\tR\rsshPrivateKey2q\n" +
+	"\x04auth\x18\x02 \x01(\tR\x04auth\x12\x12\n" +
+	"\x04port\x18\x03 \x01(\x05R\x04port\x12$\n" +
+	"\x0essh_public_key\x18\x04 \x01(\tR\fsshPublicKey\x12&\n" +
+	"\x0fssh_private_key\x18\x05 \x01(\tR\rsshPrivateKey2q\n" +
 	"\vHoleService\x12b\n" +
 	"\x11AcquireConnection\x12$.pkg.rpc.v1.AcquireConnectionRequest\x1a%.pkg.rpc.v1.AcquireConnectionResponse\"\x00B\x19Z\x17sshole/pkg/rpc/v1;rpcv1b\x06proto3"
 

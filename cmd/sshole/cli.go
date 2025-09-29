@@ -54,7 +54,8 @@ type commandFc struct {
 	AccessKeySecret string `env:"FC_ACCESS_KEY_SECRET"`
 	// SecurityToken   string
 
-	ServiceName  string `env:"SERVICE_NAME" default:"__FC3"`
+	// ServiceName  string `env:"SERVICE_NAME" default:"__FC3"`
+	ServiceName  string `env:"SERVICE_NAME"`
 	FunctionName string `env:"FUNCTION_NAME"`
 	InstanceID   string `env:"INSTANCE_ID"`
 }

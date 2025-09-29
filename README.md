@@ -20,3 +20,4 @@
 - [] agent 追加 SSH 公钥
 - [] 单实例多 conn，防止 SSHD 冲突
 - [] sshd 临时文件夹
+- [] 多版本 cli 的 fc 函数冲突

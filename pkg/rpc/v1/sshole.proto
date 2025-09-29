@@ -10,9 +10,11 @@ message AcquireConnectionRequest {
 
 message AcquireConnectionResponse {
   string message = 1;
-  int32 port = 2;
-  string ssh_public_key = 3;
-  string ssh_private_key = 4;
+  string auth = 2;
+  
+  int32 port = 3;
+  string ssh_public_key = 4;
+  string ssh_private_key = 5;
 }
 
 service HoleService {
