@@ -169,8 +169,8 @@ func cmdFc(ctx context.Context) {
 
 				_, err = fc3Client.CreateTrigger(tea.String(hubFunctionName), &fc20230330.CreateTriggerRequest{
 					Body: &fc20230330.CreateTriggerInput{
-						TriggerName: tea.String("sshole-trigger"),
-						TriggerType: tea.String("http"),
+						TriggerName:   tea.String("sshole-trigger"),
+						TriggerType:   tea.String("http"),
 						TriggerConfig: tea.String(`{"authType": "anonymous", "methods": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"]}`),
 					},
 				})
@@ -209,6 +209,7 @@ func cmdFc(ctx context.Context) {
 						Code: &fc20230330.InputCodeLocation{ZipFile: tea.String(codeBase64)},
 						EnvironmentVariables: map[string]*string{
 							"CODE_HASH": tea.String(codeHash),
+							"AUTH":      tea.String(auth),
 						},
 					},
 				})
@@ -290,7 +291,7 @@ func cmdFc(ctx context.Context) {
 			ServiceName:  tea.String(cli.Fc.ServiceName),
 			FunctionName: tea.String(cli.Fc.FunctionName),
 			InstanceID:   tea.String(cli.Fc.InstanceID),
-			Command:      []string{"bash", "-c", fmt.Sprintf("[ -f /sshole ] || curl -o /sshole %s/bin && chmod +x /sshole && HUB_SERVER=%s CONN_ID=%v /sshole agent", hubUrl, hubUrl, connId)},
+			Command:      []string{"bash", "-c", fmt.Sprintf("[ -f /sshole ] || curl -o /sshole %s/bin && chmod +x /sshole && HUB_SERVER=%s CONN_ID=%v AUTH=%s /sshole agent", hubUrl, hubUrl, connId, auth)},
 			Stdin:        false,
 			Stdout:       true,
 			Stderr:       true,
@@ -334,6 +335,7 @@ func cmdFc(ctx context.Context) {
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  hubUrl,
 		Remotes: []string{fmt.Sprintf("24:localhost:%d", acquireResp.Msg.Port)}, // 把服务器的指定端口映射到本地的 24 端口
+		Auth:    auth,
 	})
 	if err != nil {
 		logger.Panic().Err(err).Msg("Failed to create chisel client")

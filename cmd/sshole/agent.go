@@ -13,16 +13,18 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sshole/pkg/common"
 	"sshole/pkg/utils"
 	"syscall"
 	"time"
+
+	rpcv1 "sshole/pkg/rpc/v1"
+	"sshole/pkg/rpc/v1/rpcv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/117503445/goutils"
 	chclient "github.com/jpillora/chisel/client"
 	"github.com/rs/zerolog/log"
-	rpcv1 "sshole/pkg/rpc/v1"
-	"sshole/pkg/rpc/v1/rpcv1connect"
 )
 
 // terminateProcess 安全终止进程
@@ -72,7 +74,7 @@ func setupSSHKeys(ctx context.Context, connId string) int32 {
 	logger.Info().Msg("Connecting to hub")
 
 	// 创建hub客户端
-	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, getHubUrl(ctx))
+	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, common.GetEnvHubUrl(ctx))
 
 	// 调用AcquireConnection RPC获取连接信息
 	acquireReq := connect.NewRequest(&rpcv1.AcquireConnectionRequest{
@@ -244,8 +246,9 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 		Msg("Starting chisel")
 
 	c, err := chclient.NewClient(&chclient.Config{
-		Server:  getHubUrl(ctx),
+		Server:  common.GetEnvHubUrl(ctx),
 		Remotes: []string{fmt.Sprintf("R:%d:localhost:%v", port, sshdPort)}, // 本地 22222 端口，映射到 hub 的指定端口
+		Auth:    common.GetEnvAuth(ctx),
 	})
 	if err != nil {
 		logger.Panic().Err(err).Msg("Failed to create chisel client")
@@ -256,14 +259,4 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 	if err := c.Wait(); err != nil {
 		logger.Panic().Err(err).Msg("Failed to wait chisel client")
 	}
-}
-
-func getHubUrl(ctx context.Context) string {
-	logger := log.Ctx(ctx)
-
-	hubUrl := os.Getenv("HUB_SERVER")
-	if hubUrl == "" {
-		logger.Panic().Msg("HUB_SERVER not found in environment variables")
-	}
-	return hubUrl
 }
