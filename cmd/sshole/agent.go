@@ -78,7 +78,8 @@ func setupSSHKeys(ctx context.Context, connId string) int32 {
 
 	// 调用AcquireConnection RPC获取连接信息
 	acquireReq := connect.NewRequest(&rpcv1.AcquireConnectionRequest{
-		Id: connId,
+		Id:  connId,
+		Auth: common.GetEnvAuth(ctx),
 	})
 
 	acquireResp, err := hubClient.AcquireConnection(context.Background(), acquireReq)

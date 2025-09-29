@@ -246,7 +246,8 @@ func cmdFc(ctx context.Context) {
 	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, hubUrl)
 
 	acquireReq := connect.NewRequest(&rpcv1.AcquireConnectionRequest{
-		Id: connId,
+		Id:  connId,
+		Auth: auth,
 	})
 
 	acquireResp, err := hubClient.AcquireConnection(context.Background(), acquireReq)

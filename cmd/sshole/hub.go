@@ -87,6 +87,22 @@ func (s *HoleServer) AcquireConnection(
 			log.Error().Err(err).Msg(msg)
 			return err
 		}
+		
+		// 添加 auth 认证检查
+		expectedAuth := common.GetEnvAuth(ctx)
+		if req.Msg.Auth == "" {
+			msg := "Missing auth token"
+			err := fmt.Errorf("%s", msg)
+			log.Error().Err(err).Msg(msg)
+			return err
+		}
+		if req.Msg.Auth != expectedAuth {
+			msg := "Invalid auth token"
+			err := fmt.Errorf("%s", msg)
+			log.Error().Err(err).Msg(msg)
+			return err
+		}
+		
 		return nil
 	}
 	if err := checker(); err != nil {
