@@ -11,7 +11,7 @@ import (
 	"sshole/pkg/clients"
 	"strings"
 
-	fc "github.com/aliyun/fc-go-sdk"
+	fc "github.com/117503445/fc-go-sdk"
 	chclient "github.com/jpillora/chisel/client"
 
 	"net/http"
@@ -241,6 +241,7 @@ func cmdFc(ctx context.Context) {
 
 	// 生成连接ID
 	connId := goutils.UUID4()
+	logger.Info().Str("connId", connId).Send()
 
 	// 调用hub的AcquireConnection RPC
 	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, hubUrl)
@@ -254,7 +255,7 @@ func cmdFc(ctx context.Context) {
 	if err != nil {
 		logger.Panic().Err(err).Msg("Failed to acquire connection")
 	}
-	logger.Info().Interface("Msg", acquireResp.Msg).Send()
+	logger.Info().Interface("FC acquireResp", acquireResp.Msg).Send()
 
 	// 将SSH私钥写入临时文件
 	tmpFile, err := os.CreateTemp("", "sshole_private_key_*.pem")

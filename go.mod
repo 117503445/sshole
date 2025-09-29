@@ -4,13 +4,13 @@ go 1.25.1
 
 require (
 	connectrpc.com/connect v1.19.0
+	github.com/117503445/fc-go-sdk v0.0.0-20250929082546-7174f56a5e50
 	github.com/117503445/goutils v0.0.0-20250824044823-d1d255ec734f
 	github.com/alecthomas/kong v1.12.1
 	github.com/alibabacloud-go/darabonba-openapi/v2 v2.1.12
 	github.com/alibabacloud-go/fc-20230330/v4 v4.4.1
 	github.com/alibabacloud-go/tea v1.3.12
 	github.com/aliyun/credentials-go v1.4.7
-	github.com/aliyun/fc-go-sdk v0.0.0-20230313060359-3a1b2ede1e1e
 	github.com/creack/pty v1.1.24
 	github.com/jpillora/chisel v1.11.3
 	github.com/rs/zerolog v1.34.0

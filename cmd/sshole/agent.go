@@ -86,6 +86,7 @@ func setupSSHKeys(ctx context.Context, connId string) int32 {
 	if err != nil {
 		logger.Panic().Err(err).Msg("Failed to acquire connection from hub")
 	}
+	logger.Info().Interface("Agent acquireResp", acquireResp.Msg).Send()
 
 	// 将公钥写入指定位置
 	// TODO: 追加
