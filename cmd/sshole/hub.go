@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"sshole/pkg/common"
 	rpcv1 "sshole/pkg/rpc/v1"
 	"sshole/pkg/rpc/v1/rpcv1connect"
 	"sync"
@@ -87,9 +86,9 @@ func (s *HoleServer) AcquireConnection(
 			log.Error().Err(err).Msg(msg)
 			return err
 		}
-		
+
 		// 添加 auth 认证检查
-		expectedAuth := common.GetEnvAuth(ctx)
+		expectedAuth := cli.Hub.Auth
 		if req.Msg.Auth == "" {
 			msg := "Missing auth token"
 			err := fmt.Errorf("%s", msg)
@@ -102,7 +101,7 @@ func (s *HoleServer) AcquireConnection(
 			log.Error().Err(err).Msg(msg)
 			return err
 		}
-		
+
 		return nil
 	}
 	if err := checker(); err != nil {
@@ -210,7 +209,7 @@ func cmdHub(ctx context.Context) {
 	config := chserver.Config{
 		Reverse: true, // 启用反向模式
 		Proxy:   "http://localhost:9001",
-		Auth:    common.GetEnvAuth(ctx),
+		Auth:    cli.Hub.Auth,
 	}
 
 	// 创建服务器实例

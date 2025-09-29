@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sshole/pkg/common"
 	"sshole/pkg/utils"
 	"syscall"
 	"time"
@@ -74,12 +73,12 @@ func setupSSHKeys(ctx context.Context, connId string) int32 {
 	logger.Info().Msg("Connecting to hub")
 
 	// 创建hub客户端
-	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, common.GetEnvHubUrl(ctx))
+	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, cli.Agent.HubServer)
 
 	// 调用AcquireConnection RPC获取连接信息
 	acquireReq := connect.NewRequest(&rpcv1.AcquireConnectionRequest{
-		Id:  connId,
-		Auth: common.GetEnvAuth(ctx),
+		Id:   connId,
+		Auth: cli.Agent.Auth,
 	})
 
 	acquireResp, err := hubClient.AcquireConnection(context.Background(), acquireReq)
@@ -248,9 +247,9 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 		Msg("Starting chisel")
 
 	c, err := chclient.NewClient(&chclient.Config{
-		Server:  common.GetEnvHubUrl(ctx),
+		Server:  cli.Agent.HubServer,
 		Remotes: []string{fmt.Sprintf("R:%d:localhost:%v", port, sshdPort)}, // 本地 22222 端口，映射到 hub 的指定端口
-		Auth:    common.GetEnvAuth(ctx),
+		Auth:    cli.Agent.Auth,
 	})
 	if err != nil {
 		logger.Panic().Err(err).Msg("Failed to create chisel client")

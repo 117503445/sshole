@@ -6,6 +6,7 @@ import (
 )
 
 type commandHub struct {
+	Auth string `env:"AUTH"`
 }
 
 func (c *commandHub) Run() error {
@@ -20,6 +21,7 @@ func (c *commandHub) Run() error {
 
 type commandAgent struct {
 	HubServer string `env:"HUB_SERVER" default:"localhost:9000"`
+	Auth string `env:"AUTH"`
 }
 
 func (c *commandAgent) Run() error {
