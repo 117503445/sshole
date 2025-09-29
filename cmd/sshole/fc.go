@@ -102,6 +102,12 @@ func cmdFc(ctx context.Context) {
 
 	const hubFunctionName = "_sshole_hub"
 
+	auth := ""
+	createNewAuth := func() string {
+		u := goutils.UUID4()
+		a := fmt.Sprintf("%s:%s", "root", u)
+		return strings.ReplaceAll(a, "-", "")
+	}
 	// 创建函数
 	{
 		logger.Info().Msg("create hub function")
@@ -111,6 +117,8 @@ func cmdFc(ctx context.Context) {
 			if strings.Contains(err.Error(), "FunctionNotFound") {
 				logger.Info().
 					Msg("function not found, create it")
+
+				auth = createNewAuth()
 
 				input := &fc20230330.CreateFunctionInput{
 					FunctionName: tea.String(hubFunctionName),
@@ -130,6 +138,7 @@ func cmdFc(ctx context.Context) {
 					InstanceConcurrency: tea.Int32(200),
 					EnvironmentVariables: map[string]*string{
 						"CODE_HASH": tea.String(codeHash),
+						"AUTH":      tea.String(auth),
 					},
 				}
 
@@ -153,6 +162,18 @@ func cmdFc(ctx context.Context) {
 				if err != nil {
 					logger.Panic().Err(err).Msg("put concurrency config failed")
 				}
+
+				_, err = fc3Client.CreateTrigger(tea.String(hubFunctionName), &fc20230330.CreateTriggerRequest{
+					Body: &fc20230330.CreateTriggerInput{
+						TriggerName: tea.String("sshole-trigger"),
+						TriggerType: tea.String("http"),
+						TriggerConfig: tea.String(`{"authType": "anonymous", "methods": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"]}`),
+					},
+				})
+				if err != nil {
+					logger.Panic().Err(err).Msg("create trigger failed")
+				}
+
 			} else {
 				logger.Panic().Err(err).Msg("get function failed")
 			}
@@ -169,6 +190,13 @@ func cmdFc(ctx context.Context) {
 						needUpdate = false
 					}
 				}
+				if envAuth, ok := getResp.Body.EnvironmentVariables["AUTH"]; ok {
+					auth = tea.StringValue(envAuth)
+				} else {
+					logger.Panic().Msg("auth is nil")
+				}
+			} else {
+				logger.Panic().Msg("environment variables is nil")
 			}
 
 			if needUpdate {
