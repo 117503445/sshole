@@ -16,8 +16,9 @@
 
 ## TODO
 
-- [] 认证，防止非授权用户使用
+- [x] 认证，防止非授权用户使用
 - [] agent 追加 SSH 公钥
 - [] 单实例多 conn，防止 SSHD 冲突
 - [] sshd 临时文件夹
 - [] 多版本 cli 的 fc 函数冲突
+- [] fc3 instance
