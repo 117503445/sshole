@@ -169,6 +169,13 @@ func cmdHub(ctx context.Context) {
 			}
 		})
 
+		// 添加 /healthz 路由处理器，用于健康检查
+		mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("ok"))
+		})
+
 		path, handler := rpcv1connect.NewHoleServiceHandler(holeServer)
 		mux.Handle(path, handler)
 
