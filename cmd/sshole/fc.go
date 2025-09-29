@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"path"
 	"sshole/pkg/clients"
 	"strings"
 
@@ -204,6 +205,7 @@ func cmdFc(ctx context.Context) {
 			}
 
 			if needUpdate {
+				logger.Info().Msg("code hash does not match, updating function")
 				updateResp, err := fc3Client.UpdateFunction(tea.String(hubFunctionName), &fc20230330.UpdateFunctionRequest{
 					Body: &fc20230330.UpdateFunctionInput{
 						Code: &fc20230330.InputCodeLocation{ZipFile: tea.String(codeBase64)},
@@ -247,7 +249,7 @@ func cmdFc(ctx context.Context) {
 	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, hubUrl)
 
 	acquireReq := connect.NewRequest(&rpcv1.AcquireConnectionRequest{
-		Id:  connId,
+		Id:   connId,
 		Auth: auth,
 	})
 
@@ -258,7 +260,16 @@ func cmdFc(ctx context.Context) {
 	logger.Info().Interface("FC acquireResp", acquireResp.Msg).Send()
 
 	// 将SSH私钥写入临时文件
-	tmpFile, err := os.CreateTemp("", "sshole_private_key_*.pem")
+
+	tempDir := path.Join(os.TempDir(), "sshole")
+	if !goutils.DirExists(tempDir) {
+		err := os.Mkdir(tempDir, 0700)
+		if err != nil {
+			logger.Panic().Err(err).Str("tempDir", tempDir).Msg("Failed to create directory")
+		}
+	}
+
+	tmpFile, err := os.CreateTemp(tempDir, "private_key_*.pem")
 	if err != nil {
 		logger.Panic().Err(err).Msg("Failed to create temporary file")
 	}
