@@ -3,46 +3,18 @@
 
 version: "3"
 
-vars:
-  # 项目配置变量
-  BIN_DIR: bin
-
 tasks:
   default:
-    desc: "Show available tasks (alias: help)"
     cmds:
-      - task: help
+      - clear
+      - task: dev
 
-  help:
-    desc: "Show all available tasks"
+  dev:
     cmds:
-      - echo "Available tasks:"
-      - echo ""
-      - task --list-all
-      - echo ""
-      - 'echo "Usage: go-task <task-name>"'
-      - 'echo "   or: task <task-name>"'
+      - go run ./cmd/sshole hub
+      # - go run ./cmd/sshole agent
+      # - go run ./cmd/sshole entry
 
-  build:
-    desc: "Build all components using build script"
+  gen:
     cmds:
-      # go-task build
-      - go run scripts/build.go
-
-  test:
-    desc: "Run unit tests"
-    cmds:
-      # go-task test
-      - go test ./...
-
-  test-verbose:
-    desc: "Run unit tests with verbose output"
-    cmds:
-      # go-task test-verbose
-      - go test -v ./...
-
-  e2e:
-    desc: "Run end-to-end tests locally"
-    cmds:
-      # go-task e2e
-      - go run test/e2e/tools/runner.go local
+      - buf generate

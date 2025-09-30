@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package pkg.rpc.v1;
+
+option go_package = "sshole/pkg/rpc/v1;rpcv1";
+
+message AcquireConnectionRequest {
+  string auth = 1;
+  
+  string id = 2;
+}
+
+message AcquireConnectionResponse {
+  string message = 1;
+  
+  int32 port = 2;
+  string ssh_public_key = 3;
+  string ssh_private_key = 4;
+}
+
+service HoleService {
+  rpc AcquireConnection(AcquireConnectionRequest) returns (AcquireConnectionResponse) {}
+}
