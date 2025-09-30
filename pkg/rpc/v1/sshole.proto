@@ -8,6 +8,7 @@ message AcquireConnectionRequest {
   string auth = 1;
   
   string id = 2;
+  int32 port = 3;
 }
 
 message AcquireConnectionResponse {

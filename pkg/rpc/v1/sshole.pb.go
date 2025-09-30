@@ -25,6 +25,7 @@ type AcquireConnectionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Auth          string                 `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"`
 	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Port          int32                  `protobuf:"varint,3,opt,name=port,proto3" json:"port,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -71,6 +72,13 @@ func (x *AcquireConnectionRequest) GetId() string {
 		return x.Id
 	}
 	return ""
+}
+
+func (x *AcquireConnectionRequest) GetPort() int32 {
+	if x != nil {
+		return x.Port
+	}
+	return 0
 }
 
 type AcquireConnectionResponse struct {
@@ -146,10 +154,11 @@ var File_pkg_rpc_v1_sshole_proto protoreflect.FileDescriptor
 const file_pkg_rpc_v1_sshole_proto_rawDesc = "" +
 	"\n" +
 	"\x17pkg/rpc/v1/sshole.proto\x12\n" +
-	"pkg.rpc.v1\">\n" +
+	"pkg.rpc.v1\"R\n" +
 	"\x18AcquireConnectionRequest\x12\x12\n" +
 	"\x04auth\x18\x01 \x01(\tR\x04auth\x12\x0e\n" +
-	"\x02id\x18\x02 \x01(\tR\x02id\"\x97\x01\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x12\x12\n" +
+	"\x04port\x18\x03 \x01(\x05R\x04port\"\x97\x01\n" +
 	"\x19AcquireConnectionResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12\x12\n" +
 	"\x04port\x18\x02 \x01(\x05R\x04port\x12$\n" +
