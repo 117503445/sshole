@@ -21,7 +21,8 @@ func (c *commandHub) Run() error {
 
 type commandAgent struct {
 	HubServer string `env:"HUB_SERVER" default:"localhost:9000"`
-	Auth string `env:"AUTH"`
+	Auth      string `env:"AUTH"`
+	Port      int32  `env:"PORT"`
 }
 
 func (c *commandAgent) Run() error {
