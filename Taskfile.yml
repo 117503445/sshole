@@ -54,3 +54,8 @@ tasks:
       - ./data/sshole/sshole
     cmds:
       - docker build -t 117503445/sshole -f ./scripts/Dockerfile .
+
+  e2e:
+    deps: [clear]
+    cmds:
+      - cd ./scripts/script && go run . e-2-e

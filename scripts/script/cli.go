@@ -1,11 +1,11 @@
 package main
 
-import "script/pkg/it"
+import "script/pkg/e2e"
 
 var cli struct {
 	Build  cmdBuild  `cmd:"" help:"Build"`
 	Format cmdFormat `cmd:"" help:"Format and lint code"`
-	It     cmdIt     `cmd:"" help:"Integration test"`
+	E2e    cmdE2e    `cmd:"" help:"e2e test"`
 }
 
 type cmdBuild struct {
@@ -24,11 +24,10 @@ func (c *cmdFormat) Run() error {
 	return nil
 }
 
-
-type cmdIt struct {
+type cmdE2e struct {
 }
 
-func (c *cmdIt) Run() error {
-	it.It()
+func (c *cmdE2e) Run() error {
+	e2e.E2e()
 	return nil
 }
