@@ -7,23 +7,22 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"os"
 	"path"
-	"sshole/pkg/clients"
 	"strings"
 
-	fc "github.com/117503445/fc-go-sdk"
-	chclient "github.com/jpillora/chisel/client"
-
-	"net/http"
-	rpcv1 "sshole/pkg/rpc/v1"
-	"sshole/pkg/rpc/v1/rpcv1connect"
-
 	"connectrpc.com/connect"
+	fc "github.com/117503445/fc-go-sdk"
 	"github.com/117503445/goutils"
 	fc20230330 "github.com/alibabacloud-go/fc-20230330/v4/client"
 	"github.com/alibabacloud-go/tea/tea"
+	chclient "github.com/jpillora/chisel/client"
 	"github.com/rs/zerolog/log"
+
+	"sshole/pkg/clients"
+	rpcv1 "sshole/pkg/rpc/v1"
+	"sshole/pkg/rpc/v1/rpcv1connect"
 )
 
 func cmdFc(ctx context.Context) {

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"net/http"
 
+	fc "github.com/117503445/fc-go-sdk"
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
 	fc20230330 "github.com/alibabacloud-go/fc-20230330/v4/client"
 	"github.com/alibabacloud-go/tea/tea"
 	"github.com/aliyun/credentials-go/credentials"
-	fc "github.com/117503445/fc-go-sdk"
 	"github.com/rs/zerolog/log"
 )
 

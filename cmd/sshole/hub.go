@@ -10,17 +10,17 @@ import (
 	"net"
 	"net/http"
 	"os"
-	rpcv1 "sshole/pkg/rpc/v1"
-	"sshole/pkg/rpc/v1/rpcv1connect"
 	"sync"
 
 	"connectrpc.com/connect"
+	chserver "github.com/jpillora/chisel/server"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
-	chserver "github.com/jpillora/chisel/server"
+	rpcv1 "sshole/pkg/rpc/v1"
+	"sshole/pkg/rpc/v1/rpcv1connect"
 )
 
 type conn struct {
@@ -36,7 +36,7 @@ func newConnWithPort(port int32) (conn, error) {
 	// 检查指定端口是否可用
 	var listener net.Listener
 	var err error
-	
+
 	if port != 0 {
 		// 尝试监听指定端口
 		listener, err = net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
@@ -54,7 +54,7 @@ func newConnWithPort(port int32) (conn, error) {
 			return conn{}, err
 		}
 	}
-	
+
 	defer listener.Close()
 
 	actualPort := listener.Addr().(*net.TCPAddr).Port

@@ -42,3 +42,6 @@ entry-binary
 hub-binary
 
 gotest
+
+data
+.task

@@ -4,6 +4,13 @@
 version: "3"
 
 tasks:
+  clear:
+    internal: true
+    silent: true
+    run: once
+    cmds:
+      - clear
+
   default:
     cmds:
       - clear
@@ -18,3 +25,24 @@ tasks:
   gen:
     cmds:
       - buf generate
+
+  build:
+    deps: [clear]
+    sources:
+      - ./cmd/**
+      - ./internal/**
+      - ./pkg/**
+      - ./.git/**
+      - ./go.mod
+      - ./go.sum
+      - ./Taskfile.yml
+      - ./scripts/script/**
+    generates:
+      - ./data/sshole/sshole
+    cmds:
+      - cd ./scripts/script && go run . build
+
+  format:
+    deps: [clear]
+    cmds:
+      - cd ./scripts/script && go run . format

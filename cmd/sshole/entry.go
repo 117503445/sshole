@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 	"net/http"
-	rpcv1 "sshole/pkg/rpc/v1"
-	"sshole/pkg/rpc/v1/rpcv1connect"
 
 	"connectrpc.com/connect"
+	chclient "github.com/jpillora/chisel/client"
 	"github.com/rs/zerolog/log"
 
-	chclient "github.com/jpillora/chisel/client"
+	rpcv1 "sshole/pkg/rpc/v1"
+	"sshole/pkg/rpc/v1/rpcv1connect"
 )
 
 func cmdEntry(ctx context.Context) {
