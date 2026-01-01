@@ -23,11 +23,18 @@ tasks:
       # - go run ./cmd/sshole entry
 
   gen:
+    sources:
+      - pkg/rpc/v1/sshole.proto
+      - buf.gen.yaml
+      - buf.yaml
+    generates:
+      - ./pkg/rpc/v1/sshole.pb.go
+      - ./pkg/rpc/v1/rpcv1connect/sshole.connect.go
     cmds:
       - buf generate
 
   build:
-    deps: [clear]
+    deps: [clear, gen]
     sources:
       - ./cmd/**
       - ./internal/**
