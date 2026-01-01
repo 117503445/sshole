@@ -2,34 +2,14 @@ package main
 
 import (
 	"context"
-	"net/http"
 
-	"connectrpc.com/connect"
 	chclient "github.com/jpillora/chisel/client"
 	"github.com/rs/zerolog/log"
-
-	rpcv1 "sshole/pkg/rpc/v1"
-	"sshole/pkg/rpc/v1/rpcv1connect"
 )
 
 func cmdEntry(ctx context.Context) {
 	logger := log.Ctx(ctx)
 	logger.Info().Msg("Starting entry")
-
-	if false {
-		client := rpcv1connect.NewHoleServiceClient(
-			http.DefaultClient,
-			"http://localhost:9000",
-		)
-		res, err := client.AcquireConnection(
-			context.Background(),
-			connect.NewRequest(&rpcv1.AcquireConnectionRequest{}),
-		)
-		if err != nil {
-			logger.Panic().Err(err).Msg("Failed to create conn")
-		}
-		logger.Info().Interface("Msg", res.Msg).Send()
-	}
 
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  cli.Entry.HubServer,

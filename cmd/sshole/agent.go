@@ -9,21 +9,17 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
 	"time"
 
-	"connectrpc.com/connect"
+	"sshole/pkg/utils"
+
 	"github.com/117503445/goutils"
 	chclient "github.com/jpillora/chisel/client"
 	"github.com/rs/zerolog/log"
-
-	rpcv1 "sshole/pkg/rpc/v1"
-	"sshole/pkg/rpc/v1/rpcv1connect"
-	"sshole/pkg/utils"
 )
 
 // terminateProcess 安全终止进程
@@ -69,45 +65,10 @@ func isPortListening(port int) bool {
 func setupSSHKeys(ctx context.Context, connId string) int32 {
 	logger := log.Ctx(ctx)
 
-	// 从环境变量获取hub地址
-	logger.Info().Msg("Connecting to hub")
+	logger.Info().Str("connId", connId).Msg("Setting up SSH keys")
 
-	// 创建hub客户端
-	hubClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, cli.Agent.HubServer)
-
-	// 调用AcquireConnection RPC获取连接信息
-	acquireReq := connect.NewRequest(&rpcv1.AcquireConnectionRequest{
-		Id:   connId,
-		Auth: cli.Agent.Auth,
-		Port: cli.Agent.Port,
-	})
-
-	acquireResp, err := hubClient.AcquireConnection(context.Background(), acquireReq)
-	if err != nil {
-		logger.Panic().Err(err).Msg("Failed to acquire connection from hub")
-	}
-	logger.Info().Interface("Agent acquireResp", acquireResp.Msg).Send()
-
-	// 将公钥写入指定位置
-	// TODO: 追加
-	authorizedKeysPath := "/root/.ssh/authorized_keys"
-	if err := os.MkdirAll(filepath.Dir(authorizedKeysPath), 0700); err != nil {
-		logger.Panic().Err(err).Msg("Failed to create .ssh directory")
-	}
-
-	if err := goutils.WriteText(authorizedKeysPath, acquireResp.Msg.SshPublicKey); err != nil {
-		logger.Panic().Err(err).Msg("Failed to write authorized_keys")
-	}
-
-	// 设置正确的权限
-	if err := os.Chmod(authorizedKeysPath, 0600); err != nil {
-		logger.Panic().Err(err).Msg("Failed to chmod authorized_keys")
-	}
-
-	logger.Info().Str("path", authorizedKeysPath).Msg("SSH public key written successfully")
-
-	// 返回RPC获取的端口号
-	return acquireResp.Msg.Port
+	// 返回默认端口，不再调用AcquireConnection RPC
+	return 22222
 }
 
 func cmdAgent(ctx context.Context) {

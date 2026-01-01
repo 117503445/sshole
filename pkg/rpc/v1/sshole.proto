@@ -4,21 +4,78 @@ package pkg.rpc.v1;
 
 option go_package = "sshole/pkg/rpc/v1;rpcv1";
 
-message AcquireConnectionRequest {
-  string auth = 1;
-  
-  string id = 2;
-  int32 port = 3;
+message ApiRequest {
+  string auth = 1; // auth to hub
+  oneof payload {
+    AgentCreateRequest agent_create = 2;
+    AgentListRequest agent_list = 3;
+    AgentGetRequest agent_get = 4;
+    AgentAppendPublicKeyRequest agent_append_public_key = 5;
+  }
 }
 
-message AcquireConnectionResponse {
-  string message = 1;
-  
-  int32 port = 2;
-  string ssh_public_key = 3;
-  string ssh_private_key = 4;
+message ApiResponse {
+    int64 code = 1;
+    string message = 2;
+
+    // 根据 RPC 类型填充对应 payload
+    oneof payload {
+        AgentCreateResponse agent_create = 3;
+        AgentListResponse agent_list = 4;
+        AgentGetResponse agent_get = 5;
+        AgentAppendPublicKeyResponse agent_append_public_key = 6;
+    }
+}
+
+message AgentCreateRequest {
+  string name = 1; // agent name
+}
+
+message AgentCreateResponse {
+  Agent agent = 1;
+  string public_key = 2; // hub public key
+}
+
+message AgentListRequest {
+}
+
+message AgentListResponse {
+  repeated Agent agent = 1;
+}
+
+message AgentGetRequest {
+  string name = 1; // agent name
+}
+
+message AgentGetResponse {
+  Agent agent = 1;
+}
+
+message AgentAppendPublicKeyRequest {
+  string name = 1; // agent name
+  string public_key = 2; // hub public key
+}
+
+message AgentAppendPublicKeyResponse {
+
+}
+
+message Agent {
+  string name = 1; // agent name
+  uint32 port = 2; // hub agent port
 }
 
 service HoleService {
-  rpc AcquireConnection(AcquireConnectionRequest) returns (AcquireConnectionResponse) {}
+  // AgentCreate 注册 agent 到 hub
+  // hub 分配一个 port 给 agent，并返回 public key
+  rpc AgentCreate(ApiRequest) returns (ApiResponse) {}
+
+  // AgentList 获取 agent 列表
+  rpc AgentList(ApiRequest) returns (ApiResponse) {}
+
+  // AgentGet 获取 agent 信息
+  rpc AgentGet(ApiRequest) returns (ApiResponse) {}
+
+  // AgentAppendPublicKey 追加 public key 到 agent
+  rpc AgentAppendPublicKey(ApiRequest) returns (ApiResponse) {}
 }

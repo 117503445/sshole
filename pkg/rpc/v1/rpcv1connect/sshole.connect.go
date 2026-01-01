@@ -33,14 +33,28 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// HoleServiceAcquireConnectionProcedure is the fully-qualified name of the HoleService's
-	// AcquireConnection RPC.
-	HoleServiceAcquireConnectionProcedure = "/pkg.rpc.v1.HoleService/AcquireConnection"
+	// HoleServiceAgentCreateProcedure is the fully-qualified name of the HoleService's AgentCreate RPC.
+	HoleServiceAgentCreateProcedure = "/pkg.rpc.v1.HoleService/AgentCreate"
+	// HoleServiceAgentListProcedure is the fully-qualified name of the HoleService's AgentList RPC.
+	HoleServiceAgentListProcedure = "/pkg.rpc.v1.HoleService/AgentList"
+	// HoleServiceAgentGetProcedure is the fully-qualified name of the HoleService's AgentGet RPC.
+	HoleServiceAgentGetProcedure = "/pkg.rpc.v1.HoleService/AgentGet"
+	// HoleServiceAgentAppendPublicKeyProcedure is the fully-qualified name of the HoleService's
+	// AgentAppendPublicKey RPC.
+	HoleServiceAgentAppendPublicKeyProcedure = "/pkg.rpc.v1.HoleService/AgentAppendPublicKey"
 )
 
 // HoleServiceClient is a client for the pkg.rpc.v1.HoleService service.
 type HoleServiceClient interface {
-	AcquireConnection(context.Context, *connect.Request[v1.AcquireConnectionRequest]) (*connect.Response[v1.AcquireConnectionResponse], error)
+	// AgentCreate 注册 agent 到 hub
+	// hub 分配一个 port 给 agent，并返回 public key
+	AgentCreate(context.Context, *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error)
+	// AgentList 获取 agent 列表
+	AgentList(context.Context, *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error)
+	// AgentGet 获取 agent 信息
+	AgentGet(context.Context, *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error)
+	// AgentAppendPublicKey 追加 public key 到 agent
+	AgentAppendPublicKey(context.Context, *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error)
 }
 
 // NewHoleServiceClient constructs a client for the pkg.rpc.v1.HoleService service. By default, it
@@ -54,10 +68,28 @@ func NewHoleServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 	baseURL = strings.TrimRight(baseURL, "/")
 	holeServiceMethods := v1.File_pkg_rpc_v1_sshole_proto.Services().ByName("HoleService").Methods()
 	return &holeServiceClient{
-		acquireConnection: connect.NewClient[v1.AcquireConnectionRequest, v1.AcquireConnectionResponse](
+		agentCreate: connect.NewClient[v1.ApiRequest, v1.ApiResponse](
 			httpClient,
-			baseURL+HoleServiceAcquireConnectionProcedure,
-			connect.WithSchema(holeServiceMethods.ByName("AcquireConnection")),
+			baseURL+HoleServiceAgentCreateProcedure,
+			connect.WithSchema(holeServiceMethods.ByName("AgentCreate")),
+			connect.WithClientOptions(opts...),
+		),
+		agentList: connect.NewClient[v1.ApiRequest, v1.ApiResponse](
+			httpClient,
+			baseURL+HoleServiceAgentListProcedure,
+			connect.WithSchema(holeServiceMethods.ByName("AgentList")),
+			connect.WithClientOptions(opts...),
+		),
+		agentGet: connect.NewClient[v1.ApiRequest, v1.ApiResponse](
+			httpClient,
+			baseURL+HoleServiceAgentGetProcedure,
+			connect.WithSchema(holeServiceMethods.ByName("AgentGet")),
+			connect.WithClientOptions(opts...),
+		),
+		agentAppendPublicKey: connect.NewClient[v1.ApiRequest, v1.ApiResponse](
+			httpClient,
+			baseURL+HoleServiceAgentAppendPublicKeyProcedure,
+			connect.WithSchema(holeServiceMethods.ByName("AgentAppendPublicKey")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -65,17 +97,43 @@ func NewHoleServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 
 // holeServiceClient implements HoleServiceClient.
 type holeServiceClient struct {
-	acquireConnection *connect.Client[v1.AcquireConnectionRequest, v1.AcquireConnectionResponse]
+	agentCreate          *connect.Client[v1.ApiRequest, v1.ApiResponse]
+	agentList            *connect.Client[v1.ApiRequest, v1.ApiResponse]
+	agentGet             *connect.Client[v1.ApiRequest, v1.ApiResponse]
+	agentAppendPublicKey *connect.Client[v1.ApiRequest, v1.ApiResponse]
 }
 
-// AcquireConnection calls pkg.rpc.v1.HoleService.AcquireConnection.
-func (c *holeServiceClient) AcquireConnection(ctx context.Context, req *connect.Request[v1.AcquireConnectionRequest]) (*connect.Response[v1.AcquireConnectionResponse], error) {
-	return c.acquireConnection.CallUnary(ctx, req)
+// AgentCreate calls pkg.rpc.v1.HoleService.AgentCreate.
+func (c *holeServiceClient) AgentCreate(ctx context.Context, req *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error) {
+	return c.agentCreate.CallUnary(ctx, req)
+}
+
+// AgentList calls pkg.rpc.v1.HoleService.AgentList.
+func (c *holeServiceClient) AgentList(ctx context.Context, req *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error) {
+	return c.agentList.CallUnary(ctx, req)
+}
+
+// AgentGet calls pkg.rpc.v1.HoleService.AgentGet.
+func (c *holeServiceClient) AgentGet(ctx context.Context, req *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error) {
+	return c.agentGet.CallUnary(ctx, req)
+}
+
+// AgentAppendPublicKey calls pkg.rpc.v1.HoleService.AgentAppendPublicKey.
+func (c *holeServiceClient) AgentAppendPublicKey(ctx context.Context, req *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error) {
+	return c.agentAppendPublicKey.CallUnary(ctx, req)
 }
 
 // HoleServiceHandler is an implementation of the pkg.rpc.v1.HoleService service.
 type HoleServiceHandler interface {
-	AcquireConnection(context.Context, *connect.Request[v1.AcquireConnectionRequest]) (*connect.Response[v1.AcquireConnectionResponse], error)
+	// AgentCreate 注册 agent 到 hub
+	// hub 分配一个 port 给 agent，并返回 public key
+	AgentCreate(context.Context, *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error)
+	// AgentList 获取 agent 列表
+	AgentList(context.Context, *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error)
+	// AgentGet 获取 agent 信息
+	AgentGet(context.Context, *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error)
+	// AgentAppendPublicKey 追加 public key 到 agent
+	AgentAppendPublicKey(context.Context, *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error)
 }
 
 // NewHoleServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -85,16 +143,40 @@ type HoleServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewHoleServiceHandler(svc HoleServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	holeServiceMethods := v1.File_pkg_rpc_v1_sshole_proto.Services().ByName("HoleService").Methods()
-	holeServiceAcquireConnectionHandler := connect.NewUnaryHandler(
-		HoleServiceAcquireConnectionProcedure,
-		svc.AcquireConnection,
-		connect.WithSchema(holeServiceMethods.ByName("AcquireConnection")),
+	holeServiceAgentCreateHandler := connect.NewUnaryHandler(
+		HoleServiceAgentCreateProcedure,
+		svc.AgentCreate,
+		connect.WithSchema(holeServiceMethods.ByName("AgentCreate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	holeServiceAgentListHandler := connect.NewUnaryHandler(
+		HoleServiceAgentListProcedure,
+		svc.AgentList,
+		connect.WithSchema(holeServiceMethods.ByName("AgentList")),
+		connect.WithHandlerOptions(opts...),
+	)
+	holeServiceAgentGetHandler := connect.NewUnaryHandler(
+		HoleServiceAgentGetProcedure,
+		svc.AgentGet,
+		connect.WithSchema(holeServiceMethods.ByName("AgentGet")),
+		connect.WithHandlerOptions(opts...),
+	)
+	holeServiceAgentAppendPublicKeyHandler := connect.NewUnaryHandler(
+		HoleServiceAgentAppendPublicKeyProcedure,
+		svc.AgentAppendPublicKey,
+		connect.WithSchema(holeServiceMethods.ByName("AgentAppendPublicKey")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/pkg.rpc.v1.HoleService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case HoleServiceAcquireConnectionProcedure:
-			holeServiceAcquireConnectionHandler.ServeHTTP(w, r)
+		case HoleServiceAgentCreateProcedure:
+			holeServiceAgentCreateHandler.ServeHTTP(w, r)
+		case HoleServiceAgentListProcedure:
+			holeServiceAgentListHandler.ServeHTTP(w, r)
+		case HoleServiceAgentGetProcedure:
+			holeServiceAgentGetHandler.ServeHTTP(w, r)
+		case HoleServiceAgentAppendPublicKeyProcedure:
+			holeServiceAgentAppendPublicKeyHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -104,6 +186,18 @@ func NewHoleServiceHandler(svc HoleServiceHandler, opts ...connect.HandlerOption
 // UnimplementedHoleServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedHoleServiceHandler struct{}
 
-func (UnimplementedHoleServiceHandler) AcquireConnection(context.Context, *connect.Request[v1.AcquireConnectionRequest]) (*connect.Response[v1.AcquireConnectionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pkg.rpc.v1.HoleService.AcquireConnection is not implemented"))
+func (UnimplementedHoleServiceHandler) AgentCreate(context.Context, *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pkg.rpc.v1.HoleService.AgentCreate is not implemented"))
+}
+
+func (UnimplementedHoleServiceHandler) AgentList(context.Context, *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pkg.rpc.v1.HoleService.AgentList is not implemented"))
+}
+
+func (UnimplementedHoleServiceHandler) AgentGet(context.Context, *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pkg.rpc.v1.HoleService.AgentGet is not implemented"))
+}
+
+func (UnimplementedHoleServiceHandler) AgentAppendPublicKey(context.Context, *connect.Request[v1.ApiRequest]) (*connect.Response[v1.ApiResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pkg.rpc.v1.HoleService.AgentAppendPublicKey is not implemented"))
 }

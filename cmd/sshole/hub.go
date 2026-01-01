@@ -98,81 +98,106 @@ type HoleServer struct {
 	mu    sync.RWMutex
 }
 
-func (s *HoleServer) AcquireConnection(
+func (s *HoleServer) AgentCreate(
 	ctx context.Context,
-	req *connect.Request[rpcv1.AcquireConnectionRequest],
-) (*connect.Response[rpcv1.AcquireConnectionResponse], error) {
-	log.Info().Msg("AcquireConnection RPC")
+	req *connect.Request[rpcv1.ApiRequest],
+) (*connect.Response[rpcv1.ApiResponse], error) {
+	log.Info().Msg("AgentCreate RPC")
 
-	checker := func() error {
-		if req.Msg.Id == "" {
-			msg := "Invalid id"
-			err := fmt.Errorf("%s", msg)
-			log.Error().Err(err).Msg(msg)
-			return err
-		}
-
-		// 添加 auth 认证检查
-		expectedAuth := cli.Hub.Auth
-		if req.Msg.Auth == "" {
-			msg := "Missing auth token"
-			err := fmt.Errorf("%s", msg)
-			log.Error().Err(err).Msg(msg)
-			return err
-		}
-		if req.Msg.Auth != expectedAuth {
-			msg := "Invalid auth token"
-			err := fmt.Errorf("%s", msg)
-			log.Error().Err(err).Msg(msg)
-			return err
-		}
-
-		return nil
-	}
-	if err := checker(); err != nil {
-		return nil, err
+	agentCreateReq := req.Msg.GetAgentCreate()
+	if agentCreateReq == nil {
+		return connect.NewResponse(&rpcv1.ApiResponse{
+			Code:    400,
+			Message: "Invalid request: missing agent_create payload",
+		}), nil
 	}
 
-	// 初始化conns映射
-	s.mu.Lock()
-	if s.conns == nil {
-		s.conns = make(map[string]conn)
+	// TODO: 实现AgentCreate逻辑
+	return connect.NewResponse(&rpcv1.ApiResponse{
+		Code:    200,
+		Message: "Agent created successfully",
+		Payload: &rpcv1.ApiResponse_AgentCreate{
+			AgentCreate: &rpcv1.AgentCreateResponse{
+				Agent: &rpcv1.Agent{
+					Name: agentCreateReq.Name,
+					Port: 22222, // 默认端口
+				},
+				PublicKey: "dummy-public-key", // TODO: 生成真实的密钥
+			},
+		},
+	}), nil
+}
+
+
+func (s *HoleServer) AgentList(
+	ctx context.Context,
+	req *connect.Request[rpcv1.ApiRequest],
+) (*connect.Response[rpcv1.ApiResponse], error) {
+	log.Info().Msg("AgentList RPC")
+
+	// TODO: 实现AgentList逻辑
+	return connect.NewResponse(&rpcv1.ApiResponse{
+		Code:    200,
+		Message: "Agent list retrieved successfully",
+		Payload: &rpcv1.ApiResponse_AgentList{
+			AgentList: &rpcv1.AgentListResponse{
+				Agent: []*rpcv1.Agent{}, // 空列表
+			},
+		},
+	}), nil
+}
+
+func (s *HoleServer) AgentGet(
+	ctx context.Context,
+	req *connect.Request[rpcv1.ApiRequest],
+) (*connect.Response[rpcv1.ApiResponse], error) {
+	log.Info().Msg("AgentGet RPC")
+
+	agentGetReq := req.Msg.GetAgentGet()
+	if agentGetReq == nil {
+		return connect.NewResponse(&rpcv1.ApiResponse{
+			Code:    400,
+			Message: "Invalid request: missing agent_get payload",
+		}), nil
 	}
-	s.mu.Unlock()
 
-	// 先尝试读取锁来检查连接是否存在
-	s.mu.RLock()
-	c, exists := s.conns[req.Msg.Id]
-	s.mu.RUnlock()
+	// TODO: 实现AgentGet逻辑
+	return connect.NewResponse(&rpcv1.ApiResponse{
+		Code:    200,
+		Message: "Agent retrieved successfully",
+		Payload: &rpcv1.ApiResponse_AgentGet{
+			AgentGet: &rpcv1.AgentGetResponse{
+				Agent: &rpcv1.Agent{
+					Name: agentGetReq.Name,
+					Port: 22222,
+				},
+			},
+		},
+	}), nil
+}
 
-	// 如果不存在，则创建新的连接
-	if !exists {
-		s.mu.Lock()
-		// 双重检查，确保在获取写锁后仍需要创建连接
-		c, exists = s.conns[req.Msg.Id]
-		if !exists {
-			var err error
-			if req.Msg.Port != 0 {
-				// 如果请求中指定了端口，则尝试使用该端口
-				c, err = newConnWithPort(req.Msg.Port)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				// 否则使用随机端口
-				c = newConn()
-			}
-			s.conns[req.Msg.Id] = c
-		}
-		s.mu.Unlock()
+func (s *HoleServer) AgentAppendPublicKey(
+	ctx context.Context,
+	req *connect.Request[rpcv1.ApiRequest],
+) (*connect.Response[rpcv1.ApiResponse], error) {
+	log.Info().Msg("AgentAppendPublicKey RPC")
+
+	agentAppendReq := req.Msg.GetAgentAppendPublicKey()
+	if agentAppendReq == nil {
+		return connect.NewResponse(&rpcv1.ApiResponse{
+			Code:    400,
+			Message: "Invalid request: missing agent_append_public_key payload",
+		}), nil
 	}
 
-	res := connect.NewResponse(&rpcv1.AcquireConnectionResponse{
-		Port:          c.Port,
-		SshPublicKey:  c.SshPublicKey,
-		SshPrivateKey: c.SshPrivateKey,
-	})
-	return res, nil
+	// TODO: 实现AgentAppendPublicKey逻辑
+	return connect.NewResponse(&rpcv1.ApiResponse{
+		Code:    200,
+		Message: "Public key appended successfully",
+		Payload: &rpcv1.ApiResponse_AgentAppendPublicKey{
+			AgentAppendPublicKey: &rpcv1.AgentAppendPublicKeyResponse{},
+		},
+	}), nil
 }
 
 func cmdHub(ctx context.Context) {
