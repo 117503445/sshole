@@ -23,3 +23,5 @@ func (c *commandHub) Run() error {
 var cli struct {
 	Hub commandHub `cmd:"" help:"run hub server"`
 }
+
+

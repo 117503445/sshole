@@ -23,3 +23,5 @@ func (c *commandEntry) Run() error {
 var cli struct {
 	Entry commandEntry `cmd:"" help:"run entry client"`
 }
+
+

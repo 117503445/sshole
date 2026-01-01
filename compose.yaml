@@ -6,8 +6,10 @@ services:
       - ./:/workspace
       - cache:/root/.cache
       - cursor:/root/.cursor-server
+      - docker:/var/lib/docker
       - ./scripts/entrypoint.sh:/entrypoint
     privileged: true
 volumes:
   cache:
   cursor:
+  docker:

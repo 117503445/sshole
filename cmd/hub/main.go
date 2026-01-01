@@ -15,3 +15,5 @@ func main() {
 		log.Panic().Err(err).Msg("run failed")
 	}
 }
+
+

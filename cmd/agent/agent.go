@@ -209,9 +209,9 @@ Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 		Msg("Starting chisel")
 
 	c, err := chclient.NewClient(&chclient.Config{
-		Server:  cli.Agent.HubServer,
+		Server:  cli.HubServer,
 		Remotes: []string{fmt.Sprintf("R:%d:localhost:%v", port, sshdPort)}, // 本地 22222 端口，映射到 hub 的指定端口
-		Auth:    cli.Agent.Auth,
+		Auth:    cli.Auth,
 	})
 	if err != nil {
 		logger.Panic().Err(err).Msg("Failed to create chisel client")
