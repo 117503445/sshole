@@ -1,14 +1,11 @@
 services:
   dev:
     build:
-      context: ./
       dockerfile: dev.Dockerfile
     volumes:
         - ./:/workspace
-        - lingma:/root/.lingma
-    ports:
-      - 2222:22
-    privileged: true
-    
+        - cache:/root/.cache
+        - cursor:/root/.cursor-server
 volumes:
-  lingma:
+  cache:
+  cursor:

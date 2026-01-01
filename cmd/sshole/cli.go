@@ -61,6 +61,8 @@ type commandFc struct {
 	ServiceName  string `env:"SERVICE_NAME"`
 	FunctionName string `env:"FUNCTION_NAME"`
 	InstanceID   string `env:"INSTANCE_ID"`
+
+	SshHost string `env:"SSH_HOST" default:"localhost"`
 }
 
 func (c *commandFc) Run() error {

@@ -300,11 +300,12 @@ func cmdFc(ctx context.Context) {
 			logger.Panic().Err(err).Msg("Failed to get fc client")
 		}
 
+		command := []string{"bash", "-c", fmt.Sprintf("[ -f /sshole ] || curl -o /sshole %s/bin && chmod +x /sshole && HUB_SERVER=%s CONN_ID=%v AUTH=%s /sshole agent", hubUrl, hubUrl, connId, auth)}
 		input := &fc.InstanceExecInput{
 			ServiceName:  tea.String(cli.Fc.ServiceName),
 			FunctionName: tea.String(cli.Fc.FunctionName),
 			InstanceID:   tea.String(cli.Fc.InstanceID),
-			Command:      []string{"bash", "-c", fmt.Sprintf("[ -f /sshole ] || curl -o /sshole %s/bin && chmod +x /sshole && HUB_SERVER=%s CONN_ID=%v AUTH=%s /sshole agent", hubUrl, hubUrl, connId, auth)},
+			Command:      command,
 			Stdin:        false,
 			Stdout:       true,
 			Stderr:       true,
@@ -312,7 +313,6 @@ func cmdFc(ctx context.Context) {
 			IdleTimeout:  tea.Int(86400),
 		}
 		input.OnStdout(func(data []byte) {
-
 			fmt.Printf("STDOUT: %s\n", data)
 			go func() {
 				// 检查输出是否包含 "Starting chisel"
@@ -328,7 +328,7 @@ func cmdFc(ctx context.Context) {
 			fmt.Printf("STDERR: %s\n", data)
 		})
 
-		logger.Info().Msg("exec")
+		logger.Info().Strs("command", command).Msg("exec")
 		_, err = fcClient.InstanceExec(input)
 		if err != nil {
 			logger.Panic().Err(err).Msg("Failed to exec")
@@ -345,9 +345,19 @@ func cmdFc(ctx context.Context) {
 		Int("HubPort", int(acquireResp.Msg.Port)).
 		Int("LocalPort", 24).
 		Msg("start chisel")
+
+	sshHost := cli.Fc.SshHost
+	if sshHost == "" {
+		sshHost = "localhost"
+	}
+	logger.Info().
+		Str("sshHost", sshHost).
+		Msg("ssh host")
+	remote := fmt.Sprintf("%s:24:localhost:%d", sshHost, acquireResp.Msg.Port)
+
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  hubUrl,
-		Remotes: []string{fmt.Sprintf("24:localhost:%d", acquireResp.Msg.Port)}, // 把服务器的指定端口映射到本地的 24 端口
+		Remotes: []string{remote}, // 把服务器的指定端口映射到本地的 24 端口
 		Auth:    auth,
 	})
 	if err != nil {
