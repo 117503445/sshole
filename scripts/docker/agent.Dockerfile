@@ -4,6 +4,6 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositorie
 RUN apk --update add ca-certificates
 WORKDIR /workspace
 
-COPY data/sshole/sshole /workspace/sshole
+COPY data/agent/sshole_agent /workspace/sshole_agent
 
-ENTRYPOINT [ "/workspace/sshole" ]
+ENTRYPOINT [ "/workspace/sshole_agent" ]

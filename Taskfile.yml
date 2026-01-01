@@ -45,7 +45,9 @@ tasks:
       - ./Taskfile.yml
       - ./scripts/script/**
     generates:
-      - ./data/sshole/sshole
+      - ./data/agent/sshole_agent
+      - ./data/entry/sshole_entry
+      - ./data/hub/sshole_hub
     cmds:
       - cd ./scripts/script && go run . build
 
@@ -57,10 +59,10 @@ tasks:
   build-docker:
     deps: [clear, build]
     sources:
-      - ./scripts/Dockerfile
-      - ./data/sshole/sshole
+      - ./scripts/docker/agent.Dockerfile
+      - ./data/agent/sshole_agent
     cmds:
-      - docker build -t 117503445/sshole -f ./scripts/Dockerfile .
+      - docker build -t 117503445/sshole-agent -f ./scripts/docker/agent.Dockerfile .
 
   e2e:
     deps: [clear, build-docker]
