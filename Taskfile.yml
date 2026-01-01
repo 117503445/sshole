@@ -18,9 +18,9 @@ tasks:
 
   dev:
     cmds:
-      - go run ./cmd/sshole hub
-      # - go run ./cmd/sshole agent
-      # - go run ./cmd/sshole entry
+      - go run ./cmd/hub
+      # - go run ./cmd/agent
+      # - go run ./cmd/entry
 
   gen:
     sources:

@@ -11,7 +11,6 @@ require (
 	github.com/alibabacloud-go/fc-20230330/v4 v4.4.1
 	github.com/alibabacloud-go/tea v1.3.12
 	github.com/aliyun/credentials-go v1.4.7
-	github.com/creack/pty v1.1.24
 	github.com/jpillora/chisel v1.11.3
 	github.com/rs/zerolog v1.34.0
 	golang.org/x/crypto v0.42.0

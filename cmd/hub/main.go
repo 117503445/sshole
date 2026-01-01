@@ -10,7 +10,7 @@ func main() {
 	goutils.InitZeroLog()
 
 	kongCtx := kong.Parse(&cli)
-	log.Info().Interface("cli", cli).Msg("Starting sshole")
+	log.Info().Interface("cli", cli).Msg("Starting hub")
 	if err := kongCtx.Run(); err != nil {
 		log.Panic().Err(err).Msg("run failed")
 	}

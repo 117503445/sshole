@@ -44,7 +44,9 @@ func build() {
 		path string
 		out  string
 	}{
-		{"sshole", "./cmd/sshole", "./data/sshole/sshole"},
+		{"agent", "./cmd/agent", "./data/sshole/agent"},
+		{"entry", "./cmd/entry", "./data/sshole/entry"},
+		{"hub", "./cmd/hub", "./data/sshole/hub"},
 	}
 
 	// 并行构建
