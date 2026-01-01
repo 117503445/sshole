@@ -46,3 +46,11 @@ tasks:
     deps: [clear]
     cmds:
       - cd ./scripts/script && go run . format
+
+  build-docker:
+    deps: [clear, build]
+    sources:
+      - ./scripts/Dockerfile
+      - ./data/sshole/sshole
+    cmds:
+      - docker build -t 117503445/sshole -f ./scripts/Dockerfile .

@@ -4,4 +4,4 @@ set -e
 
 rm /var/run/docker.pid || true
 
-dockerd
+dockerd --storage-driver=fuse-overlayfs
