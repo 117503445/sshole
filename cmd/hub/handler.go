@@ -10,23 +10,57 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/117503445/goutils"
+	"github.com/117503445/goutils/glog"
+	"github.com/117503445/sshole/internal/buildinfo"
 	rpcv1 "github.com/117503445/sshole/pkg/rpc/v1"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
 )
 
-type conn struct {
-	Port          int32
-	SshPublicKey  string
-	SshPrivateKey string
-}
+func NewCtxInterceptor() connect.UnaryInterceptorFunc {
+	return func(next connect.UnaryFunc) connect.UnaryFunc {
+		return func(
+			ctx context.Context,
+			req connect.AnyRequest,
+		) (resp connect.AnyResponse, err error) {
+			requestID := ""
+			if !req.Spec().IsClient {
+				requestID = req.Header().Get("X-Request-ID")
+				if requestID == "" {
+					requestID = req.Header().Get("x-fc-request-id")
+					if requestID == "" {
+						requestID = goutils.UUID7()
+					}
+				}
+				ctx = WithContext(ctx, AppContext{
+					RequestID: requestID,
+				})
 
-func newConn() conn {
-	c, err := newConnWithPort(0)
-	if err != nil {
-		panic(err)
+				ctx = log.Output(glog.NewConsoleWriter(
+					glog.ConsoleWriterConfig{
+						RequestId: requestID,
+						DirBuild:  buildinfo.BuildDir,
+					},
+				)).Level(zerolog.DebugLevel).With().Caller().Logger().WithContext(ctx)
+				log.Ctx(ctx).Debug().
+					Interface("req", req).
+					Msg("request received")
+			}
+			resp, err = next(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			if resp != nil && resp.Header() != nil {
+				resp.Header().Set("X-Request-ID", requestID)
+			}
+			log.Ctx(ctx).Debug().
+				Interface("resp", resp).
+				Msg("request done")
+			return resp, err
+		}
 	}
-	return c
 }
 
 // HoleServer 是 hub 服务器的实现
@@ -36,7 +70,6 @@ func newConn() conn {
 // 每个 RPC 方法的错误码从 1 开始独立编号
 type HoleServer struct {
 	agents map[string]*rpcv1.Agent // name -> agent
-	conns  map[string]conn         // name -> connection info (port, ssh keys)
 	mu     sync.RWMutex
 
 	privateKey ed25519.PrivateKey
@@ -51,7 +84,6 @@ func newHoleServer() *HoleServer {
 	}
 	return &HoleServer{
 		agents:     make(map[string]*rpcv1.Agent),
-		conns:      make(map[string]conn),
 		privateKey: ed25519.PrivateKey(privateKey),
 		publicKey:  ed25519.PublicKey(publicKey),
 	}
@@ -93,25 +125,23 @@ func (s *HoleServer) AgentCreate(
 		}), nil
 	}
 
-	// 为 agent 创建连接信息（包含 SSH 密钥对）
-	connInfo, err := newConnWithPort(0)
+	port, err := findFreePort()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to create connection info")
+		log.Error().Err(err).Msg("Failed to find free port")
 		return connect.NewResponse(&rpcv1.ApiResponse{
 			Code:    4,
-			Message: "Failed to create connection info",
+			Message: "Failed to find free port",
 		}), nil
 	}
 
 	// 创建 agent
 	agent := &rpcv1.Agent{
 		Name: agentCreateReq.Name,
-		Port: uint32(connInfo.Port),
+		Port: uint32(port),
 	}
 
 	// 存储 agent 和连接信息
 	s.agents[agentCreateReq.Name] = agent
-	s.conns[agentCreateReq.Name] = connInfo
 
 	log.Info().Str("name", agent.Name).Uint32("port", agent.Port).Msg("Agent created successfully")
 
@@ -237,10 +267,9 @@ func (s *HoleServer) AgentAppendPublicKey(
 
 	s.mu.RLock()
 	agent, agentExists := s.agents[agentAppendReq.Name]
-	connInfo, connExists := s.conns[agentAppendReq.Name]
 	s.mu.RUnlock()
 
-	if !agentExists || !connExists {
+	if !agentExists {
 		return connect.NewResponse(&rpcv1.ApiResponse{
 			Code:    4,
 			Message: "Agent not found",
@@ -248,7 +277,7 @@ func (s *HoleServer) AgentAppendPublicKey(
 	}
 
 	// SSH 连接到 agent 并追加公钥
-	err := s.appendPublicKeyToAgent(connInfo, agentAppendReq.PublicKey)
+	err := s.appendPublicKeyToAgent(int32(agent.Port), agentAppendReq.PublicKey)
 	if err != nil {
 		log.Error().Err(err).Str("agent", agent.Name).Msg("Failed to append public key to agent")
 		return connect.NewResponse(&rpcv1.ApiResponse{
@@ -269,25 +298,25 @@ func (s *HoleServer) AgentAppendPublicKey(
 }
 
 // appendPublicKeyToAgent SSH 连接到 agent 并追加公钥到 authorized_keys
-func (s *HoleServer) appendPublicKeyToAgent(connInfo conn, publicKey string) error {
+func (s *HoleServer) appendPublicKeyToAgent(port int32, publicKey string) error {
 	// 解析私钥
-	privateKey, err := ssh.ParsePrivateKey([]byte(connInfo.SshPrivateKey))
+
+	signer, err := ssh.NewSignerFromKey(s.privateKey)
 	if err != nil {
-		return fmt.Errorf("failed to parse private key: %w", err)
+		return fmt.Errorf("failed to create signer from private key: %w", err)
 	}
 
-	// 创建 SSH 配置
 	config := &ssh.ClientConfig{
 		User: "root", // 假设使用 root 用户
 		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(privateKey),
+			ssh.PublicKeys(signer),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // 在生产环境中应该验证主机密钥
 		Timeout:         10 * time.Second,
 	}
 
 	// 连接到 agent
-	client, err := ssh.Dial("tcp", fmt.Sprintf("localhost:%d", connInfo.Port), config)
+	client, err := ssh.Dial("tcp", fmt.Sprintf("localhost:%d", port), config)
 	if err != nil {
 		return fmt.Errorf("failed to connect to agent: %w", err)
 	}

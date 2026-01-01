@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"connectrpc.com/connect"
 	chserver "github.com/jpillora/chisel/server"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/net/http2"
@@ -20,7 +21,6 @@ func cmdHub(ctx context.Context) {
 	logger.Info().Msg("Starting hub")
 
 	go func() {
-		holeServer := newHoleServer()
 		mux := http.NewServeMux()
 
 		// 添加 /bin 路由处理器，用于返回二进制文件
@@ -67,7 +67,11 @@ func cmdHub(ctx context.Context) {
 			_, _ = w.Write([]byte("ok"))
 		})
 
-		path, handler := rpcv1connect.NewHoleServiceHandler(holeServer)
+		holeServer := newHoleServer()
+		interceptors := connect.WithInterceptors(
+			NewCtxInterceptor(),
+		)
+		path, handler := rpcv1connect.NewHoleServiceHandler(holeServer, interceptors)
 		mux.Handle(path, handler)
 
 		err := http.ListenAndServe(

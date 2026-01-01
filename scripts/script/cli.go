@@ -5,7 +5,7 @@ import "script/pkg/e2e"
 var cli struct {
 	Build  cmdBuild  `cmd:"" help:"Build"`
 	Format cmdFormat `cmd:"" help:"Format and lint code"`
-	E2e    cmdE2e    `cmd:"" help:"e2e test"`
+	E2E    cmdE2e    `cmd:"" aliases:"e2e" help:"e2e test"`
 }
 
 type cmdBuild struct {
