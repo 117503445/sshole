@@ -11,7 +11,7 @@ import (
 var cli struct {
 	HubServer string `env:"HUB_SERVER" default:"localhost:9000"`
 	Auth      string `env:"AUTH"`
-	SshdPort  int32  `env:"SSHD_PORT" default:"22222"`
+	SshdPort  int    `env:"SSHD_PORT" default:"22222"`
 }
 
 func main() {

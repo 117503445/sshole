@@ -81,12 +81,11 @@ func cmdAgent(ctx context.Context) {
 		logger.Warn().Msg("CONN_ID not found in environment variables")
 	}
 
-	sshdPort := 22222
 
 	var sshCmd *exec.Cmd
 
 	startSSHD := func() {
-		if isPortListening(sshdPort) {
+		if isPortListening(cli.SshdPort) {
 			logger.Info().Msg("sshd is already listening")
 			return
 		}
@@ -129,7 +128,7 @@ PasswordAuthentication no
 PubkeyAuthentication yes
 AuthorizedKeysFile /tmp/sshole_agent/authorized_keys
 HostKey /tmp/sshole_agent/opt/openssh/etc/ssh_host_ed25519_key
-Subsystem	sftp	/tmp/sshole_agent/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
+Subsystem	sftp	/tmp/sshole_agent/opt/openssh/libexec/sftp-server`, cli.SshdPort)); err != nil {
 			logger.Panic().Err(err).Msg("write sshd_config failed")
 		}
 
@@ -191,7 +190,7 @@ ebPeVJubu2pN7c/9i3LgAAAAEXJvb3RANjUzNGE4ZmEzNjMyAQIDBA==
 
 		for {
 			time.Sleep(time.Second) // 等待 sshd 启动
-			if isPortListening(sshdPort) {
+			if isPortListening(cli.SshdPort) {
 				logger.Info().Msg("sshd is already listening")
 				return
 			}
@@ -212,12 +211,16 @@ ebPeVJubu2pN7c/9i3LgAAAAEXJvb3RANjUzNGE4ZmEzNjMyAQIDBA==
 
 	logger.Info().
 		Int("HubPort", int(port)).
-		Int("AgentPort", sshdPort).
+		Int("AgentPort", cli.SshdPort).
 		Msg("Starting chisel")
+
+	select {
+
+	}
 
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  cli.HubServer,
-		Remotes: []string{fmt.Sprintf("R:%d:localhost:%v", port, sshdPort)}, // 本地 22222 端口，映射到 hub 的指定端口
+		Remotes: []string{fmt.Sprintf("R:%d:localhost:%v", port, cli.SshdPort)}, // 本地 22222 端口，映射到 hub 的指定端口
 		Auth:    cli.Auth,
 	})
 	if err != nil {
