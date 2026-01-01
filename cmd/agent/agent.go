@@ -5,12 +5,16 @@ import (
 	_ "embed"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
 	"time"
 
+	"connectrpc.com/connect"
+	rpcv1 "github.com/117503445/sshole/pkg/rpc/v1"
+	"github.com/117503445/sshole/pkg/rpc/v1/rpcv1connect"
 	"github.com/117503445/sshole/pkg/utils"
 
 	"github.com/117503445/goutils"
@@ -58,27 +62,34 @@ func isPortListening(port int) bool {
 	return true // 能连接 = 正在监听
 }
 
-func setupSSHKeys(ctx context.Context, connId string) int32 {
-	logger := log.Ctx(ctx)
-
-	logger.Info().Str("connId", connId).Msg("Setting up SSH keys")
-
-	// 返回默认端口，不再调用AcquireConnection RPC
-	return 22222
-}
-
 func cmdAgent(ctx context.Context) {
 	logger := log.Ctx(ctx)
 	logger.Info().Msg("Starting agent")
 
-	// 从环境变量获取连接ID
-	connId := os.Getenv("CONN_ID")
 	var port int32
-	if connId != "" {
-		logger.Info().Str("connId", connId).Msg("Setting up SSH keys with conn ID")
-		port = setupSSHKeys(ctx, connId)
-	} else {
-		logger.Warn().Msg("CONN_ID not found in environment variables")
+	rpcClient := rpcv1connect.NewHoleServiceClient(http.DefaultClient, cli.HubServer)
+
+	response, err := rpcClient.AgentCreate(ctx, connect.NewRequest(&rpcv1.ApiRequest{
+		Auth: cli.Auth,
+		Payload: &rpcv1.ApiRequest_AgentCreate{
+			AgentCreate: &rpcv1.AgentCreateRequest{
+				Name: cli.Name,
+			},
+		},
+	}))
+	if err != nil {
+		logger.Panic().Err(err).Msg("failed to create agent")
+	}
+	if response.Msg.Code != 0 {
+		logger.Panic().Int64("code", response.Msg.Code).
+			Str("message", response.Msg.Message).
+			Str("agent_name", cli.Name).
+			Msg("failed to create agent via hub")
+	}
+	port = int32(response.Msg.GetAgentCreate().GetAgent().GetPort())
+	if port == 0 {
+		logger.Panic().Int32("port", port).
+			Msg("failed to create agent via hub")
 	}
 
 	var sshCmd *exec.Cmd
