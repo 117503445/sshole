@@ -56,6 +56,6 @@ tasks:
       - docker build -t 117503445/sshole -f ./scripts/Dockerfile .
 
   e2e:
-    deps: [clear]
+    deps: [clear, build-docker]
     cmds:
       - cd ./scripts/script && go run . e-2-e

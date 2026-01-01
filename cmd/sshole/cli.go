@@ -50,35 +50,35 @@ func (c *commandEntry) Run() error {
 	return nil
 }
 
-type commandFc struct {
-	Region    string `env:"FC_REGION"`
-	AccountID string `env:"FC_ACCOUNT_ID"`
+// type commandFc struct {
+// 	Region    string `env:"FC_REGION"`
+// 	AccountID string `env:"FC_ACCOUNT_ID"`
 
-	AccessKeyId     string `env:"FC_ACCESS_KEY_ID"`
-	AccessKeySecret string `env:"FC_ACCESS_KEY_SECRET"`
-	// SecurityToken   string
+// 	AccessKeyId     string `env:"FC_ACCESS_KEY_ID"`
+// 	AccessKeySecret string `env:"FC_ACCESS_KEY_SECRET"`
+// 	// SecurityToken   string
 
-	// ServiceName  string `env:"SERVICE_NAME" default:"__FC3"`
-	ServiceName  string `env:"SERVICE_NAME"`
-	FunctionName string `env:"FUNCTION_NAME"`
-	InstanceID   string `env:"INSTANCE_ID"`
+// 	// ServiceName  string `env:"SERVICE_NAME" default:"__FC3"`
+// 	ServiceName  string `env:"SERVICE_NAME"`
+// 	FunctionName string `env:"FUNCTION_NAME"`
+// 	InstanceID   string `env:"INSTANCE_ID"`
 
-	SshHost string `env:"SSH_HOST" default:"localhost"`
-}
+// 	SshHost string `env:"SSH_HOST" default:"localhost"`
+// }
 
-func (c *commandFc) Run() error {
-	ctx := context.Background()
-	ctx = common.InitLogger(ctx, common.InitLoggerOption{
-		Component: "fc",
-	})
+// func (c *commandFc) Run() error {
+// 	ctx := context.Background()
+// 	ctx = common.InitLogger(ctx, common.InitLoggerOption{
+// 		Component: "fc",
+// 	})
 
-	cmdFc(ctx)
-	return nil
-}
+// 	cmdFc(ctx)
+// 	return nil
+// }
 
 var cli struct {
 	Hub   commandHub   `cmd:"" help:"run hub server"`
 	Agent commandAgent `cmd:"" help:"run agent client"`
 	Entry commandEntry `cmd:"" help:"run entry client"`
-	Fc    commandFc    `cmd:"" help:"run fc client"`
+	// Fc    commandFc    `cmd:"" help:"run fc client"`
 }
