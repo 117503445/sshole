@@ -123,7 +123,7 @@ func (s *HoleServer) AgentCreate(
 	ctx context.Context,
 	req *connect.Request[rpcv1.ApiRequest],
 ) (*connect.Response[rpcv1.ApiResponse], error) {
-	log.Info().Msg("AgentCreate RPC")
+	log.Ctx(ctx).Info().Msg("AgentCreate RPC")
 
 	agentCreateReq := req.Msg.GetAgentCreate()
 	if agentCreateReq == nil {
@@ -153,7 +153,7 @@ func (s *HoleServer) AgentCreate(
 
 	port, err := findFreePort()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to find free port")
+		log.Ctx(ctx).Error().Err(err).Msg("Failed to find free port")
 		return connect.NewResponse(&rpcv1.ApiResponse{
 			Code:    4,
 			Message: "Failed to find free port",
@@ -169,11 +169,11 @@ func (s *HoleServer) AgentCreate(
 	// 存储 agent 和连接信息
 	s.agents[agentCreateReq.Name] = agent
 
-	log.Info().Str("name", agent.Name).Uint32("port", agent.Port).Msg("Agent created successfully")
+	log.Ctx(ctx).Info().Str("name", agent.Name).Uint32("port", agent.Port).Msg("Agent created successfully")
 
 	sshPublicKey, err := publicKeyToSSHFormat(ed25519.PublicKey(s.publicKey))
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to convert public key to SSH format")
+		log.Ctx(ctx).Error().Err(err).Msg("Failed to convert public key to SSH format")
 		return connect.NewResponse(&rpcv1.ApiResponse{
 			Code:    5,
 			Message: "Failed to convert public key to SSH format",
@@ -197,7 +197,7 @@ func (s *HoleServer) AgentList(
 	ctx context.Context,
 	req *connect.Request[rpcv1.ApiRequest],
 ) (*connect.Response[rpcv1.ApiResponse], error) {
-	log.Info().Msg("AgentList RPC")
+	log.Ctx(ctx).Info().Msg("AgentList RPC")
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -208,7 +208,7 @@ func (s *HoleServer) AgentList(
 		agents = append(agents, agent)
 	}
 
-	log.Info().Int("count", len(agents)).Msg("Agent list retrieved successfully")
+	log.Ctx(ctx).Info().Int("count", len(agents)).Msg("Agent list retrieved successfully")
 
 	return connect.NewResponse(&rpcv1.ApiResponse{
 		Code:    0,
@@ -226,7 +226,7 @@ func (s *HoleServer) AgentGet(
 	ctx context.Context,
 	req *connect.Request[rpcv1.ApiRequest],
 ) (*connect.Response[rpcv1.ApiResponse], error) {
-	log.Info().Msg("AgentGet RPC")
+	log.Ctx(ctx).Info().Msg("AgentGet RPC")
 
 	agentGetReq := req.Msg.GetAgentGet()
 	if agentGetReq == nil {
@@ -254,7 +254,7 @@ func (s *HoleServer) AgentGet(
 		}), nil
 	}
 
-	log.Info().Str("name", agent.Name).Uint32("port", agent.Port).Msg("Agent retrieved successfully")
+	log.Ctx(ctx).Info().Str("name", agent.Name).Uint32("port", agent.Port).Msg("Agent retrieved successfully")
 
 	return connect.NewResponse(&rpcv1.ApiResponse{
 		Code:    0,
@@ -276,7 +276,7 @@ func (s *HoleServer) AgentAppendPublicKey(
 	ctx context.Context,
 	req *connect.Request[rpcv1.ApiRequest],
 ) (*connect.Response[rpcv1.ApiResponse], error) {
-	log.Info().Msg("AgentAppendPublicKey RPC")
+	log.Ctx(ctx).Info().Msg("AgentAppendPublicKey RPC")
 
 	agentAppendReq := req.Msg.GetAgentAppendPublicKey()
 	if agentAppendReq == nil {
@@ -314,14 +314,14 @@ func (s *HoleServer) AgentAppendPublicKey(
 	// SSH 连接到 agent 并追加公钥
 	err := s.appendPublicKeyToAgent(int32(agent.Port), agentAppendReq.PublicKey)
 	if err != nil {
-		log.Error().Err(err).Str("agent", agent.Name).Msg("Failed to append public key to agent")
+		log.Ctx(ctx).Error().Err(err).Str("agent", agent.Name).Msg("Failed to append public key to agent")
 		return connect.NewResponse(&rpcv1.ApiResponse{
 			Code:    5,
 			Message: "Failed to append public key to agent",
 		}), nil
 	}
 
-	log.Info().Str("agent", agent.Name).Msg("Public key appended successfully")
+	log.Ctx(ctx).Info().Str("agent", agent.Name).Msg("Public key appended successfully")
 
 	return connect.NewResponse(&rpcv1.ApiResponse{
 		Code:    0,

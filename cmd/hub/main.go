@@ -13,9 +13,11 @@ var cli struct {
 	Auth string `env:"AUTH"`
 }
 
-func main() {
+func init() {
 	glog.InitZeroLog()
+}
 
+func main() {
 	kong.Parse(&cli)
 
 	log.Info().

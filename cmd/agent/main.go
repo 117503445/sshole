@@ -18,9 +18,11 @@ var cli struct {
 	SshdPort  int    `env:"SSHD_PORT" default:"22222"`
 }
 
-func main() {
+func init() {
 	glog.InitZeroLog()
+}
 
+func main() {
 	kong.Parse(&cli)
 
 	log.Info().
