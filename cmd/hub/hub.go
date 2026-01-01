@@ -20,7 +20,7 @@ func cmdHub(ctx context.Context) {
 	logger.Info().Msg("Starting hub")
 
 	go func() {
-		holeServer := &HoleServer{}
+		holeServer := newHoleServer()
 		mux := http.NewServeMux()
 
 		// 添加 /bin 路由处理器，用于返回二进制文件
