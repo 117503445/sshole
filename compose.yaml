@@ -3,9 +3,11 @@ services:
     build:
       dockerfile: dev.Dockerfile
     volumes:
-        - ./:/workspace
-        - cache:/root/.cache
-        - cursor:/root/.cursor-server
+      - ./:/workspace
+      - cache:/root/.cache
+      - cursor:/root/.cursor-server
+      - ./scripts/entrypoint.sh:/entrypoint
+    privileged: true
 volumes:
   cache:
   cursor:
