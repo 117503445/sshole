@@ -99,7 +99,7 @@ func publicKeyToSSHFormat(publicKey ed25519.PublicKey) (string, error) {
 }
 
 func newHoleServer() *HoleServer {
-	privateKey, publicKey, err := ed25519.GenerateKey(nil)
+	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		log.Panic().Err(err).Msg("failed to generate ed25519 key")
 		return nil
