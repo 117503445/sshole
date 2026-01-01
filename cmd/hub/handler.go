@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"strings"
@@ -76,12 +78,36 @@ type HoleServer struct {
 	publicKey  ed25519.PublicKey
 }
 
+func publicKeyToPEM(publicKey ed25519.PublicKey) string {
+	pubBytes, _ := x509.MarshalPKIXPublicKey(publicKey)
+	pubPem := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubBytes})
+	return string(pubPem)
+}
+
+func privateKeyToPEM(privateKey ed25519.PrivateKey) string {
+	privBytes, _ := x509.MarshalPKCS8PrivateKey(privateKey)
+	privPem := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privBytes})
+	return string(privPem)
+}
+
+func publicKeyToSSHFormat(publicKey ed25519.PublicKey) (string, error) {
+	sshPublicKey, err := ssh.NewPublicKey(publicKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to create SSH public key: %w", err)
+	}
+	return string(ssh.MarshalAuthorizedKey(sshPublicKey)), nil
+}
+
 func newHoleServer() *HoleServer {
 	privateKey, publicKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		log.Panic().Err(err).Msg("failed to generate ed25519 key")
 		return nil
 	}
+	privateKeyPEM := privateKeyToPEM(ed25519.PrivateKey(privateKey))
+	publicKeyPEM := publicKeyToPEM(ed25519.PublicKey(publicKey))
+	log.Info().Str("private_key", privateKeyPEM).Str("public_key", publicKeyPEM).Msg("generated ed25519 key")
+
 	return &HoleServer{
 		agents:     make(map[string]*rpcv1.Agent),
 		privateKey: ed25519.PrivateKey(privateKey),
@@ -145,13 +171,22 @@ func (s *HoleServer) AgentCreate(
 
 	log.Info().Str("name", agent.Name).Uint32("port", agent.Port).Msg("Agent created successfully")
 
+	sshPublicKey, err := publicKeyToSSHFormat(ed25519.PublicKey(s.publicKey))
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to convert public key to SSH format")
+		return connect.NewResponse(&rpcv1.ApiResponse{
+			Code:    5,
+			Message: "Failed to convert public key to SSH format",
+		}), nil
+	}
+
 	return connect.NewResponse(&rpcv1.ApiResponse{
 		Code:    0,
 		Message: "",
 		Payload: &rpcv1.ApiResponse_AgentCreate{
 			AgentCreate: &rpcv1.AgentCreateResponse{
 				Agent:     agent,
-				PublicKey: string(s.publicKey),
+				PublicKey: sshPublicKey,
 			},
 		},
 	}), nil

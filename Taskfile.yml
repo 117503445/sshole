@@ -9,7 +9,7 @@ tasks:
     silent: true
     run: once
     cmds:
-      - clear
+      - clear || true
 
   default:
     cmds:
