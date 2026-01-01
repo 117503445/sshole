@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"sshole/pkg/common"
+	"github.com/117503445/sshole/pkg/common"
 )
 
 type commandHub struct {
@@ -23,5 +23,3 @@ func (c *commandHub) Run() error {
 var cli struct {
 	Hub commandHub `cmd:"" help:"run hub server"`
 }
-
-

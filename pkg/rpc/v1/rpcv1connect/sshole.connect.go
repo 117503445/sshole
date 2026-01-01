@@ -8,8 +8,8 @@ import (
 	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
+	v1 "github.com/117503445/sshole/pkg/rpc/v1"
 	http "net/http"
-	v1 "sshole/pkg/rpc/v1"
 	strings "strings"
 )
 

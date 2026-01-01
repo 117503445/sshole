@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"sshole/pkg/utils"
+	"github.com/117503445/sshole/pkg/utils"
 
 	"github.com/117503445/goutils"
 	chclient "github.com/jpillora/chisel/client"
@@ -80,7 +80,6 @@ func cmdAgent(ctx context.Context) {
 	} else {
 		logger.Warn().Msg("CONN_ID not found in environment variables")
 	}
-
 
 	var sshCmd *exec.Cmd
 
@@ -214,9 +213,7 @@ ebPeVJubu2pN7c/9i3LgAAAAEXJvb3RANjUzNGE4ZmEzNjMyAQIDBA==
 		Int("AgentPort", cli.SshdPort).
 		Msg("Starting chisel")
 
-	select {
-
-	}
+	select {}
 
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  cli.HubServer,

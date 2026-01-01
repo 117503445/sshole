@@ -37,6 +37,7 @@ func build() {
 		log.Ctx(ctx).Error().Err(err).Msg("failed to get build info")
 		os.Exit(1)
 	}
+	log.Ctx(ctx).Info().Interface("buildInfo", buildInfo).Msg("build info")
 
 	// 构建程序列表
 	builds := []struct {
@@ -69,13 +70,13 @@ func build() {
 			log.Ctx(ctx).Info().Msg("building")
 
 			ldflags := fmt.Sprintf(
-				"-X 'github.com/117503445/go-template/internal/buildinfo.BuildTime=%s' "+
-					"-X 'github.com/117503445/go-template/internal/buildinfo.GitBranch=%s' "+
-					"-X 'github.com/117503445/go-template/internal/buildinfo.GitCommit=%s' "+
-					"-X 'github.com/117503445/go-template/internal/buildinfo.GitTag=%s' "+
-					"-X 'github.com/117503445/go-template/internal/buildinfo.GitDirty=%t' "+
-					"-X 'github.com/117503445/go-template/internal/buildinfo.GitVersion=%s' "+
-					"-X 'github.com/117503445/go-template/internal/buildinfo.BuildDir=%s'",
+				"-X 'github.com/117503445/sshole/internal/buildinfo.BuildTime=%s' "+
+					"-X 'github.com/117503445/sshole/internal/buildinfo.GitBranch=%s' "+
+					"-X 'github.com/117503445/sshole/internal/buildinfo.GitCommit=%s' "+
+					"-X 'github.com/117503445/sshole/internal/buildinfo.GitTag=%s' "+
+					"-X 'github.com/117503445/sshole/internal/buildinfo.GitDirty=%t' "+
+					"-X 'github.com/117503445/sshole/internal/buildinfo.GitVersion=%s' "+
+					"-X 'github.com/117503445/sshole/internal/buildinfo.BuildDir=%s'",
 				buildInfo.BuildTime, buildInfo.GitBranch, buildInfo.GitCommit,
 				buildInfo.GitTag, buildInfo.GitDirty, buildInfo.GitVersion, buildInfo.BuildDir,
 			)

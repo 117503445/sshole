@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"sshole/pkg/common"
+	"github.com/117503445/sshole/pkg/common"
 )
 
 type commandEntry struct {
@@ -23,5 +23,3 @@ func (c *commandEntry) Run() error {
 var cli struct {
 	Entry commandEntry `cmd:"" help:"run entry client"`
 }
-
-

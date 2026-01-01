@@ -728,7 +728,7 @@ const file_pkg_rpc_v1_sshole_proto_rawDesc = "" +
 	"\vAgentCreate\x12\x16.pkg.rpc.v1.ApiRequest\x1a\x17.pkg.rpc.v1.ApiResponse\"\x00\x12>\n" +
 	"\tAgentList\x12\x16.pkg.rpc.v1.ApiRequest\x1a\x17.pkg.rpc.v1.ApiResponse\"\x00\x12=\n" +
 	"\bAgentGet\x12\x16.pkg.rpc.v1.ApiRequest\x1a\x17.pkg.rpc.v1.ApiResponse\"\x00\x12I\n" +
-	"\x14AgentAppendPublicKey\x12\x16.pkg.rpc.v1.ApiRequest\x1a\x17.pkg.rpc.v1.ApiResponse\"\x00B\x19Z\x17sshole/pkg/rpc/v1;rpcv1b\x06proto3"
+	"\x14AgentAppendPublicKey\x12\x16.pkg.rpc.v1.ApiRequest\x1a\x17.pkg.rpc.v1.ApiResponse\"\x00B.Z,github.com/117503445/sshole/pkg/rpc/v1;rpcv1b\x06proto3"
 
 var (
 	file_pkg_rpc_v1_sshole_proto_rawDescOnce sync.Once

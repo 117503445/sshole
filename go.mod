@@ -1,4 +1,4 @@
-module sshole
+module github.com/117503445/sshole
 
 go 1.25.5
 

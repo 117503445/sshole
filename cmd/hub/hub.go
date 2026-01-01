@@ -19,8 +19,9 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
-	rpcv1 "sshole/pkg/rpc/v1"
-	"sshole/pkg/rpc/v1/rpcv1connect"
+	"github.com/117503445/sshole/pkg/rpc/v1/rpcv1connect"
+
+	rpcv1 "github.com/117503445/sshole/pkg/rpc/v1"
 )
 
 type conn struct {
@@ -127,7 +128,6 @@ func (s *HoleServer) AgentCreate(
 		},
 	}), nil
 }
-
 
 func (s *HoleServer) AgentList(
 	ctx context.Context,

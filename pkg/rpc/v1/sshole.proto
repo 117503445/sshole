@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package pkg.rpc.v1;
 
-option go_package = "sshole/pkg/rpc/v1;rpcv1";
+option go_package = "github.com/117503445/sshole/pkg/rpc/v1;rpcv1";
 
 message ApiRequest {
   string auth = 1; // auth to hub
