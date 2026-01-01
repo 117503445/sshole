@@ -1,19 +1,37 @@
 package main
 
 import (
-	"github.com/117503445/goutils"
+	"context"
+
+	"github.com/117503445/goutils/glog"
+	"github.com/117503445/sshole/internal/buildinfo"
 	"github.com/alecthomas/kong"
 	"github.com/rs/zerolog/log"
 )
 
-func main() {
-	goutils.InitZeroLog()
-
-	kongCtx := kong.Parse(&cli)
-	log.Info().Interface("cli", cli).Msg("Starting hub")
-	if err := kongCtx.Run(); err != nil {
-		log.Panic().Err(err).Msg("run failed")
-	}
+var cli struct {
+	Auth string `env:"AUTH"`
 }
 
+func main() {
+	glog.InitZeroLog()
 
+	kong.Parse(&cli)
+
+	log.Info().
+		Str("BuildTime", buildinfo.BuildTime).
+		Str("GitBranch", buildinfo.GitBranch).
+		Str("GitCommit", buildinfo.GitCommit).
+		Str("GitTag", buildinfo.GitTag).
+		Str("GitDirty", buildinfo.GitDirty).
+		Str("GitVersion", buildinfo.GitVersion).
+		Str("BuildDir", buildinfo.BuildDir).
+		Msg("build info")
+
+	log.Info().Interface("cli", cli).
+		Msg("Starting agent")
+
+	ctx := context.Background()
+	ctx = log.Logger.WithContext(ctx)
+	cmdHub(ctx)
+}

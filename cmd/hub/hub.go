@@ -269,7 +269,7 @@ func cmdHub(ctx context.Context) {
 	config := chserver.Config{
 		Reverse: true, // 启用反向模式
 		Proxy:   "http://localhost:9001",
-		Auth:    cli.Hub.Auth,
+		Auth:    cli.Auth,
 	}
 
 	// 创建服务器实例

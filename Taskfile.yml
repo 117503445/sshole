@@ -18,9 +18,7 @@ tasks:
 
   dev:
     cmds:
-      - go run ./cmd/hub
-      # - go run ./cmd/agent
-      # - go run ./cmd/entry
+      - task: e2e
 
   gen:
     sources:
@@ -61,8 +59,11 @@ tasks:
     sources:
       - ./scripts/docker/agent.Dockerfile
       - ./data/agent/sshole_agent
+      - ./scripts/docker/hub.Dockerfile
+      - ./data/hub/sshole_hub
     cmds:
       - docker build -t 117503445/sshole-agent -f ./scripts/docker/agent.Dockerfile .
+      - docker build -t 117503445/sshole-hub -f ./scripts/docker/hub.Dockerfile .
 
   e2e:
     deps: [clear, build-docker]
