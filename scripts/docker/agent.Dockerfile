@@ -4,6 +4,8 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositorie
 RUN apk --update add ca-certificates
 WORKDIR /workspace
 
+COPY scripts/openssh-V_9_9_P2.tar.gz /tmp/sshole_agent/openssh.tar.gz
+
 COPY data/agent/sshole_agent /workspace/sshole_agent
 
 ENTRYPOINT [ "/workspace/sshole_agent" ]

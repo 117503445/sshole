@@ -1,13 +1,9 @@
 package main
 
 import (
-	"archive/tar"
-	"bytes"
-	"compress/gzip"
 	"context"
 	_ "embed"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -95,87 +91,98 @@ func cmdAgent(ctx context.Context) {
 			return
 		}
 
-		fileSSHTarGz := "/tmp/openssh.tar.gz"
+		tempDir, err := os.MkdirTemp("", "sshole_agent")
+		if err != nil {
+			logger.Panic().Err(err).Msg("create temp dir failed")
+		}
+		defer os.RemoveAll(tempDir)
+
+		fileSSHTarGz := "/tmp/sshole_agent/openssh.tar.gz"
 
 		if !goutils.FileExists(fileSSHTarGz) {
 			logger.Info().Msg("Downloading openssh")
 
-			if err := os.MkdirAll("/tmp", 0755); err != nil {
+			if err := os.MkdirAll("/tmp/sshole_agent", 0755); err != nil {
 				logger.Panic().Err(err).Msg("create tmp dir failed")
 			}
+			// TODO: replace url
 			if err := goutils.Download("https://webdav.cloud.117503445.top/public-writable/openssh-V_9_9_P2.tgz", fileSSHTarGz); err != nil {
 				logger.Panic().Err(err).Msg("download openssh failed")
 			}
-			opensshTarGz, err := os.ReadFile(fileSSHTarGz)
-			if err != nil {
-				logger.Panic().Err(err).Msg("read openssh.tar.gz failed")
-			}
+		} else {
+			logger.Info().Msg("Using cached openssh tar.gz")
+		}
 
+		fileSsh := "/tmp/sshole_agent/opt/openssh/bin/ssh"
+		if !goutils.FileExists(fileSsh) {
 			logger.Info().Msg("Extracting openssh")
-			{
-				// 创建 gzip 读取器
-				gz, err := gzip.NewReader(bytes.NewReader(opensshTarGz))
-				if err != nil {
-					panic("无法读取 gzip 数据: " + err.Error())
-				}
-				defer gz.Close()
-
-				// 创建 tar 读取器
-				tr := tar.NewReader(gz)
-
-				// 遍历 tar 中的每个文件
-				for {
-					header, err := tr.Next()
-					if err == io.EOF {
-						break // 解压完成
-					}
-					if err != nil {
-						panic("读取 tar 头部失败: " + err.Error())
-					}
-
-					// 构建目标文件的完整路径（直接拼接到根目录）
-					target := filepath.Join("/", header.Name)
-
-					// 根据文件类型处理
-					switch header.Typeflag {
-					case tar.TypeDir:
-						// 创建目录
-						os.MkdirAll(target, os.FileMode(header.Mode))
-						logger.Info().Str("dir", target).Msg("create dir")
-					case tar.TypeReg:
-						if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-							panic("无法创建目录: " + err.Error())
-						}
-						// 创建文件
-						file, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.FileMode(header.Mode))
-						if err != nil {
-							panic("创建文件失败 " + target + ": " + err.Error())
-						}
-						// 将 tar 中的文件内容拷贝到新文件
-						io.Copy(file, tr)
-						file.Close()
-						logger.Info().Str("file", target).Msg("create file")
-					}
-				}
+			if err := goutils.Extract(ctx, fileSSHTarGz, "/tmp/sshole_agent"); err != nil {
+				logger.Panic().Err(err).Msg("extract openssh failed")
 			}
 		} else {
 			logger.Info().Msg("Using cached openssh")
 		}
 
-		if err := goutils.WriteText("/opt/openssh/etc/sshd_config", fmt.Sprintf(`Port %v
+		if err := goutils.WriteText("/tmp/sshole_agent/opt/openssh/etc/sshd_config", fmt.Sprintf(`Port %v
 PermitRootLogin yes
 PasswordAuthentication no
 PubkeyAuthentication yes
-AuthorizedKeysFile /root/.ssh/authorized_keys
-Subsystem	sftp	/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
+AuthorizedKeysFile /tmp/sshole_agent/authorized_keys
+HostKey /tmp/sshole_agent/opt/openssh/etc/ssh_host_ed25519_key
+Subsystem	sftp	/tmp/sshole_agent/opt/openssh/libexec/sftp-server`, sshdPort)); err != nil {
 			logger.Panic().Err(err).Msg("write sshd_config failed")
 		}
 
-		utils.Execute(ctx, utils.ExecuteParams{
-			Cmd: utils.Command("/opt/openssh/bin/ssh-keygen -A"),
-		})
+		{
+			src := "/tmp/sshole_agent/opt/openssh/libexec/sshd-session"
+			target := "/opt/openssh/libexec/sshd-session"
 
-		sshCmd = utils.Command("/opt/openssh/sbin/sshd -D -e")
+			if !goutils.FileExists(target) {
+				// 确保父目录存在
+				linkDir := filepath.Dir(target)
+				if err := os.MkdirAll(linkDir, 0755); err != nil {
+					logger.Error().Err(err).Str("linkDir", linkDir).Msg("failed to create parent directory")
+				}
+
+				// 创建符号链接
+				if err := os.Symlink(src, target); err != nil {
+					logger.Error().Err(err).Str("target", src).Str("linkPath", target).Msg("failed to create symlink")
+				}
+
+				logger.Info().Str("target", src).Str("linkPath", target).Msg("created symlink")
+			}
+		}
+
+		// utils.Execute(ctx, utils.ExecuteParams{
+		// 	Cmd: utils.Command("/tmp/sshole_agent/opt/openssh/bin/ssh-keygen -A"),
+		// })
+
+		{
+			if err := goutils.WriteText("/tmp/sshole_agent/opt/openssh/etc/ssh_host_ed25519_key", `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACCBBWLFnI3INjjSXukHEWabLHmz3lSbm7tqTe3P/Yty4AAAAJg/bIunP2yL
+pwAAAAtzc2gtZWQyNTUxOQAAACCBBWLFnI3INjjSXukHEWabLHmz3lSbm7tqTe3P/Yty4A
+AAAEBb33HgWMfWGHw29eFrHV/lNCbTNkUt4zVVz/rNPWm6j4EFYsWcjcg2ONJe6QcRZpss
+ebPeVJubu2pN7c/9i3LgAAAAEXJvb3RANjUzNGE4ZmEzNjMyAQIDBA==
+-----END OPENSSH PRIVATE KEY-----
+			`); err != nil {
+				logger.Warn().Err(err).Msg("failed to write ssh_host_ed25519_key")
+			}
+			if err := os.Chmod("/tmp/sshole_agent/opt/openssh/etc/ssh_host_ed25519_key", 0600); err != nil {
+				logger.Warn().Err(err).Msg("failed to chmod ssh_host_ed25519_key")
+			}
+		}
+
+		{
+			dir := "/opt/openssh/var/empty"
+
+			// 创建目录（等效于 mkdir -p）
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				logger.Error().Err(err).Str("dir", dir).Msg("failed to create directory")
+			}
+		}
+
+		sshCmd = utils.Command("/tmp/sshole_agent/opt/openssh/sbin/sshd -D -e -f /tmp/sshole_agent/opt/openssh/etc/sshd_config")
 		go func() {
 			utils.Execute(ctx, utils.ExecuteParams{
 				Cmd: sshCmd,
