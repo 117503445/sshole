@@ -29,6 +29,20 @@ tasks:
       - ./scripts/docker/entry.Dockerfile
       - ./data/entry/sshole_entry
     cmds:
-      - docker build -t 117503445/sshole-agent -f ./scripts/docker/agent.Dockerfile .
-      - docker build -t 117503445/sshole-hub -f ./scripts/docker/hub.Dockerfile .
-      - docker build -t 117503445/sshole-entry -f ./scripts/docker/entry.Dockerfile .
+      - cd ./scripts/script && go run . build-docker {{.CLI_ARGS}}
+
+  release:
+    deps: [":base:clear"]
+    sources:
+      - ./cmd/**
+      - ./internal/**
+      - ./pkg/**
+      - ./.git/**
+      - ./go.mod
+      - ./go.sum
+    generates:
+      - ./data/release/sshole_entry-*
+      - ./data/release/sshole_hub-linux-amd64
+      - ./data/release/sshole_agent-linux-amd64
+    cmds:
+      - cd ./scripts/script && go run . release
