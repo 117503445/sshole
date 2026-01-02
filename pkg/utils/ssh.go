@@ -22,7 +22,7 @@ type SshExecuteResult struct {
 }
 
 func SshExecute(ctx context.Context, params SshExecuteParams) (SshExecuteResult, error) {
-	// 解析私钥
+	// 解析私钥 (SSH格式)
 	signer, err := ssh.ParsePrivateKey(params.PrivateKeyPem)
 	if err != nil {
 		return SshExecuteResult{}, fmt.Errorf("failed to parse private key: %w", err)

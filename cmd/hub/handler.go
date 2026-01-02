@@ -98,15 +98,31 @@ func publicKeyToSSHFormat(publicKey ed25519.PublicKey) (string, error) {
 	return string(ssh.MarshalAuthorizedKey(sshPublicKey)), nil
 }
 
+func privateKeyToSSHFormat(privateKey ed25519.PrivateKey) ([]byte, error) {
+	block, err := ssh.MarshalPrivateKey(privateKey, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal private key: %w", err)
+	}
+	return pem.EncodeToMemory(block), nil
+}
+
 func newHoleServer() *HoleServer {
 	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		log.Panic().Err(err).Msg("failed to generate ed25519 key")
 		return nil
 	}
-	privateKeyPEM := privateKeyToPEM(ed25519.PrivateKey(privateKey))
-	publicKeyPEM := publicKeyToPEM(ed25519.PublicKey(publicKey))
-	log.Info().Str("private_key", privateKeyPEM).Str("public_key", publicKeyPEM).Msg("generated ed25519 key")
+
+	privateKeySSH, err := privateKeyToSSHFormat(ed25519.PrivateKey(privateKey))
+	if err != nil {
+		log.Panic().Err(err).Msg("failed to convert private key to SSH format")
+	}
+	publicKeySSH, err := publicKeyToSSHFormat(ed25519.PublicKey(publicKey))
+	if err != nil {
+		log.Panic().Err(err).Msg("failed to convert public key to SSH format")
+	}
+
+	log.Info().Str("private_key", string(privateKeySSH)).Str("public_key", publicKeySSH).Msg("generated ed25519 key")
 
 	return &HoleServer{
 		agents:     make(map[string]*rpcv1.Agent),
@@ -335,7 +351,6 @@ func (s *HoleServer) AgentAppendPublicKey(
 // appendPublicKeyToAgent SSH 连接到 agent 并追加公钥到 authorized_keys
 func (s *HoleServer) appendPublicKeyToAgent(port int32, publicKey string) error {
 	// 解析私钥
-
 	signer, err := ssh.NewSignerFromKey(s.privateKey)
 	if err != nil {
 		return fmt.Errorf("failed to create signer from private key: %w", err)

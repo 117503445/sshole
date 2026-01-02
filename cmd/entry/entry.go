@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -41,6 +42,14 @@ func publicKeyToSSHFormat(publicKey ed25519.PublicKey) (string, error) {
 	return string(ssh.MarshalAuthorizedKey(sshPublicKey)), nil
 }
 
+func privateKeyToSSHFormat(privateKey ed25519.PrivateKey) ([]byte, error) {
+	block, err := ssh.MarshalPrivateKey(privateKey, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal private key: %w", err)
+	}
+	return pem.EncodeToMemory(block), nil
+}
+
 func cmdEntry(ctx context.Context) {
 	logger := log.Ctx(ctx)
 	logger.Info().Msg("Starting entry")
@@ -65,11 +74,17 @@ func cmdEntry(ctx context.Context) {
 				logger.Panic().Err(err).Msg("Failed to generate ed25519 key pair")
 			}
 
-			privateKeyPEM := privateKeyToPEM(ed25519.PrivateKey(privateKey))
-			publicKeyPEM := publicKeyToPEM(ed25519.PublicKey(publicKey))
+			privateKeySSH, err := privateKeyToSSHFormat(ed25519.PrivateKey(privateKey))
+			if err != nil {
+				logger.Panic().Err(err).Msg("Failed to convert private key to SSH format")
+			}
+			publicKeySSH, err := publicKeyToSSHFormat(ed25519.PublicKey(publicKey))
+			if err != nil {
+				logger.Panic().Err(err).Msg("Failed to convert public key to SSH format")
+			}
 
 			// 写入私钥文件
-			if err := goutils.WriteText(cli.PrivateKey, privateKeyPEM); err != nil {
+			if err := goutils.WriteText(cli.PrivateKey, string(privateKeySSH)); err != nil {
 				logger.Panic().Err(err).Str("path", cli.PrivateKey).Msg("Failed to write private key")
 			}
 			if err := os.Chmod(cli.PrivateKey, 0600); err != nil {
@@ -77,7 +92,7 @@ func cmdEntry(ctx context.Context) {
 			}
 
 			// 写入公钥文件
-			if err := goutils.WriteText(cli.PublicKey, publicKeyPEM); err != nil {
+			if err := goutils.WriteText(cli.PublicKey, publicKeySSH); err != nil {
 				logger.Panic().Err(err).Str("path", cli.PublicKey).Msg("Failed to write public key")
 			}
 			if err := os.Chmod(cli.PublicKey, 0644); err != nil {
@@ -155,35 +170,15 @@ func cmdEntry(ctx context.Context) {
 
 	logger.Info().Str("agent", agent.Name).Uint32("port", agent.Port).Int("ssh_port", cli.SshPort).Msg("Agent selected")
 
-	// 3. 将 cli.PublicKey 读取，转为 ssh 格式，写入到 agent 的 authorized_keys 文件中，通过调用 hub 的 AgentAppendPublicKey RPC 实现
+	// 3. 将 cli.PublicKey 读取，写入到 agent 的 authorized_keys 文件中，通过调用 hub 的 AgentAppendPublicKey RPC 实现
 	logger.Info().Str("public_key_path", cli.PublicKey).Msg("Reading public key...")
 
-	publicKeyPEM, err := os.ReadFile(cli.PublicKey)
+	sshPublicKeyBytes, err := os.ReadFile(cli.PublicKey)
 	if err != nil {
 		logger.Panic().Err(err).Str("path", cli.PublicKey).Msg("Failed to read public key file")
 	}
 
-	// 解析PEM格式的公钥
-	block, _ := pem.Decode(publicKeyPEM)
-	if block == nil {
-		logger.Panic().Msg("Failed to decode PEM block")
-	}
-
-	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		logger.Panic().Err(err).Msg("Failed to parse public key")
-	}
-
-	ed25519PublicKey, ok := publicKey.(ed25519.PublicKey)
-	if !ok {
-		logger.Panic().Msg("Public key is not an ed25519 key")
-	}
-
-	// 转换为SSH格式
-	sshPublicKey, err := publicKeyToSSHFormat(ed25519PublicKey)
-	if err != nil {
-		logger.Panic().Err(err).Msg("Failed to convert public key to SSH format")
-	}
+	sshPublicKey := strings.TrimSpace(string(sshPublicKeyBytes))
 
 	// 通过RPC调用写入到agent的authorized_keys
 	logger.Info().Str("agent", agent.Name).Msg("Appending public key to agent...")
