@@ -44,9 +44,10 @@ func (c *cmdFormat) Run() error {
 }
 
 type cmdE2e struct {
+	Case string `help:"Test case to run (basic, auth). If not specified, runs all cases" default:""`
 }
 
 func (c *cmdE2e) Run() error {
-	e2e.E2e()
+	e2e.E2e(c.Case)
 	return nil
 }
