@@ -10,10 +10,10 @@ import (
 )
 
 var cli struct {
-	HubServer string `env:"HUB_SERVER"`
-	Auth      string `env:"AUTH"`
-	AgentName string `env:"AGENT_NAME"`
-	SshPort   int    `env:"SSH_PORT" default:"22222"`
+	HubServer      string `env:"HUB_SERVER"`
+	Auth           string `env:"AUTH"`
+	AgentName      string `env:"AGENT_NAME"`
+	SshPort        int    `env:"SSH_PORT" default:"22222"`
 }
 
 func init() {
@@ -34,7 +34,11 @@ func main() {
 		Msg("build info")
 
 	log.Info().Interface("cli", cli).
-		Msg("Starting agent")
+		Msg("Starting entry")
+
+	if cli.HubServer == "" {
+		log.Panic().Msg("HUB_SERVER is required")
+	}
 
 	ctx := context.Background()
 	ctx = log.Logger.WithContext(ctx)

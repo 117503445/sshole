@@ -61,10 +61,12 @@ tasks:
       - ./data/agent/sshole_agent
       - ./scripts/docker/hub.Dockerfile
       - ./data/hub/sshole_hub
+      - ./scripts/docker/entry.Dockerfile
+      - ./data/entry/sshole_entry
     cmds:
       - docker build -t 117503445/sshole-agent -f ./scripts/docker/agent.Dockerfile .
       - docker build -t 117503445/sshole-hub -f ./scripts/docker/hub.Dockerfile .
-
+      - docker build -t 117503445/sshole-entry -f ./scripts/docker/entry.Dockerfile .
   e2e:
     deps: [clear, build-docker]
     cmds:
