@@ -3,71 +3,21 @@
 
 version: "3"
 
-tasks:
-  clear:
-    internal: true
-    silent: true
-    run: once
-    cmds:
-      - clear || true
+dotenv: [".env"]
 
-  default:
-    cmds:
-      - clear
-      - task: dev
-
-  dev:
-    cmds:
-      - task: e2e
-
-  gen:
-    sources:
-      - pkg/rpc/v1/sshole.proto
-      - buf.gen.yaml
-      - buf.yaml
-    generates:
-      - ./pkg/rpc/v1/sshole.pb.go
-      - ./pkg/rpc/v1/rpcv1connect/sshole.connect.go
-    cmds:
-      - buf generate
-
+includes:
+  base:
+    taskfile: ./scripts/tasks/base
   build:
-    deps: [clear, gen]
-    sources:
-      - ./cmd/**
-      - ./internal/**
-      - ./pkg/**
-      - ./.git/**
-      - ./go.mod
-      - ./go.sum
-      - ./Taskfile.yml
-      - ./scripts/script/**
-    generates:
-      - ./data/agent/sshole_agent
-      - ./data/entry/sshole_entry
-      - ./data/hub/sshole_hub
-    cmds:
-      - cd ./scripts/script && go run . build
-
+    taskfile: ./scripts/tasks/build
+  gen:
+    taskfile: ./scripts/tasks/gen
   format:
-    deps: [clear]
-    cmds:
-      - cd ./scripts/script && go run . format
+    taskfile: ./scripts/tasks/format
 
-  build-docker:
-    deps: [clear, build]
-    sources:
-      - ./scripts/docker/agent.Dockerfile
-      - ./data/agent/sshole_agent
-      - ./scripts/docker/hub.Dockerfile
-      - ./data/hub/sshole_hub
-      - ./scripts/docker/entry.Dockerfile
-      - ./data/entry/sshole_entry
+tasks:
+  default:
+    desc: "The default task"
+    deps: ["base:clear"]
     cmds:
-      - docker build -t 117503445/sshole-agent -f ./scripts/docker/agent.Dockerfile .
-      - docker build -t 117503445/sshole-hub -f ./scripts/docker/hub.Dockerfile .
-      - docker build -t 117503445/sshole-entry -f ./scripts/docker/entry.Dockerfile .
-  e2e:
-    deps: [clear, build-docker]
-    cmds:
-      - cd ./scripts/script && go run . e-2-e
+      - task: base:dev

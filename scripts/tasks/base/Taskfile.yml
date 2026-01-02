@@ -1,0 +1,24 @@
+version: 3
+
+tasks:
+  clear:
+    internal: true
+    silent: true
+    run: once
+    cmds:
+      - clear || true
+
+  default:
+    desc: "The default task"
+    deps: ["clear"]
+    cmds:
+      - task: dev
+
+  dev:
+    cmds:
+      - task: e2e
+
+  e2e:
+    deps: [":base:clear", ":build:build-docker"]
+    cmds:
+      - cd ./scripts/script && go run . e-2-e
