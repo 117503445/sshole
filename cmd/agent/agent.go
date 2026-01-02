@@ -92,9 +92,15 @@ func cmdAgent(ctx context.Context) {
 			Msg("failed to create agent via hub")
 	}
 
+	// 获取 hub 返回的公钥
+	publicKey := response.Msg.GetAgentCreate().GetPublicKey()
+	if publicKey == "" {
+		logger.Panic().Msg("failed to get public key from hub")
+	}
+
 	var sshCmd *exec.Cmd
 
-	startSSHD := func() {
+	startSSHD := func(publicKey string) {
 		if isPortListening(cli.SshdPort) {
 			logger.Info().Msg("sshd is already listening")
 			return
@@ -133,6 +139,7 @@ func cmdAgent(ctx context.Context) {
 		}
 
 		if err := goutils.WriteText("/tmp/sshole_agent/opt/openssh/etc/sshd_config", fmt.Sprintf(`Port %v
+ListenAddress 127.0.0.1
 PermitRootLogin yes
 PasswordAuthentication no
 PubkeyAuthentication yes
@@ -202,12 +209,20 @@ ebPeVJubu2pN7c/9i3LgAAAAEXJvb3RANjUzNGE4ZmEzNjMyAQIDBA==
 			time.Sleep(time.Second) // 等待 sshd 启动
 			if isPortListening(cli.SshdPort) {
 				logger.Info().Msg("sshd is already listening")
+
+				// SSHD 启动后，将 hub 的公钥添加到 authorized_keys
+				if err := goutils.WriteText("/tmp/sshole_agent/authorized_keys", publicKey); err != nil {
+					logger.Warn().Err(err).Msg("failed to write authorized_keys")
+				} else {
+					logger.Info().Msg("added hub public key to authorized_keys")
+				}
+
 				return
 			}
 		}
 	}
 
-	startSSHD()
+	startSSHD(publicKey)
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Printf("Recovered from panic: %v\n", r)
@@ -224,11 +239,9 @@ ebPeVJubu2pN7c/9i3LgAAAAEXJvb3RANjUzNGE4ZmEzNjMyAQIDBA==
 		Int("AgentPort", cli.SshdPort).
 		Msg("Starting chisel")
 
-	select {}
-
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  cli.HubServer,
-		Remotes: []string{fmt.Sprintf("R:%d:localhost:%v", port, cli.SshdPort)}, // 本地 22222 端口，映射到 hub 的指定端口
+		Remotes: []string{fmt.Sprintf("%d:localhost:%v", port, cli.SshdPort)}, // 将 hub 的 port 端口映射到本地的 SshdPort 端口
 		Auth:    cli.Auth,
 	})
 	if err != nil {

@@ -66,7 +66,21 @@ func E2e() {
 		log.Panic().Err(err).Msg("Failed to start agent container")
 	}
 
-	// Wait 10 seconds
+	// Wait 3 seconds before starting entry
+	log.Info().Msg("Waiting 3 seconds before starting entry...")
+	time.Sleep(3 * time.Second)
+
+	// Start entry container
+	log.Info().Msg("Starting entry container...")
+	entryCmd := exec.Command("docker", "run", "--name", "entry", "--rm", "--network", "sshole-test", "117503445/sshole-entry", "--hub-server", "http://hub:9000")
+	entryCmd.Stdout = os.Stdout
+	entryCmd.Stderr = os.Stderr
+
+	if err := entryCmd.Start(); err != nil {
+		log.Panic().Err(err).Msg("Failed to start entry container")
+	}
+
+	// Wait 10 seconds before stopping test
 	log.Info().Msg("Waiting 10 seconds before stopping test...")
 	time.Sleep(10 * time.Second)
 
@@ -80,6 +94,11 @@ func E2e() {
 	stopAgentCmd := exec.Command("docker", "stop", "agent")
 	if err := stopAgentCmd.Run(); err != nil {
 		log.Warn().Err(err).Msg("Failed to stop agent container")
+	}
+
+	stopEntryCmd := exec.Command("docker", "stop", "entry")
+	if err := stopEntryCmd.Run(); err != nil {
+		log.Warn().Err(err).Msg("Failed to stop entry container")
 	}
 
 	// Clean up network
