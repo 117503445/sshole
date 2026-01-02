@@ -14,8 +14,8 @@ var cli struct {
 	Auth       string `env:"AUTH"`
 	AgentName  string `env:"AGENT_NAME"`
 	SshPort    int    `env:"SSH_PORT" default:"22222"`
-	PrivateKey string `env:"PRIVATE_KEY"`
-	PublicKey  string `env:"PUBLIC_KEY"`
+	PrivateKey string `env:"PRIVATE_KEY" description:"The path to the private key pam file"`
+	PublicKey  string `env:"PUBLIC_KEY" description:"The path to the public key pam file"`
 }
 
 func init() {
@@ -41,11 +41,6 @@ func main() {
 	if cli.HubServer == "" {
 		log.Panic().Msg("HUB_SERVER is required")
 	}
-
-	if (cli.PrivateKey == "" && cli.PublicKey != "") || (cli.PrivateKey != "" && cli.PublicKey == "") {
-		log.Panic().Msg("PRIVATE_KEY and PUBLIC_KEY must be set together")
-	}
-
 
 	ctx := context.Background()
 	ctx = log.Logger.WithContext(ctx)

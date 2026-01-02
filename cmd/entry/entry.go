@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"connectrpc.com/connect"
@@ -44,36 +45,53 @@ func cmdEntry(ctx context.Context) {
 	logger := log.Ctx(ctx)
 	logger.Info().Msg("Starting entry")
 
-	if cli.PrivateKey == "" && cli.PublicKey == "" {
-		// 1. 生成 ed25519 密钥对
-		// 2. 将公钥写入到 PublicKey 路径，私钥写入到 PrivateKey 路径，都用 pam 格式，并设置正确的权限
-		logger.Info().Msg("Generating ed25519 key pair...")
-
-		publicKey, privateKey, err := ed25519.GenerateKey(nil)
+	{
+		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			logger.Panic().Err(err).Msg("Failed to generate ed25519 key pair")
+			log.Panic().Err(err).Msg("failed to get user home directory")
+		}
+		if cli.PrivateKey == "" {
+			cli.PrivateKey = filepath.Join(homeDir, ".ssh", "id_ed25519")
+		}
+		if cli.PublicKey == "" {
+			cli.PublicKey = filepath.Join(homeDir, ".ssh", "id_ed25519.pub")
 		}
 
-		privateKeyPEM := privateKeyToPEM(ed25519.PrivateKey(privateKey))
-		publicKeyPEM := publicKeyToPEM(ed25519.PublicKey(publicKey))
+		if !goutils.FileExists(cli.PrivateKey) && !goutils.FileExists(cli.PublicKey) {
+			logger.Info().Msg("Generating ed25519 key pair...")
 
-		// 写入私钥文件
-		if err := goutils.WriteText(cli.PrivateKey, privateKeyPEM); err != nil {
-			logger.Panic().Err(err).Str("path", cli.PrivateKey).Msg("Failed to write private key")
-		}
-		if err := os.Chmod(cli.PrivateKey, 0600); err != nil {
-			logger.Panic().Err(err).Str("path", cli.PrivateKey).Msg("Failed to set private key permissions")
+			publicKey, privateKey, err := ed25519.GenerateKey(nil)
+			if err != nil {
+				logger.Panic().Err(err).Msg("Failed to generate ed25519 key pair")
+			}
+
+			privateKeyPEM := privateKeyToPEM(ed25519.PrivateKey(privateKey))
+			publicKeyPEM := publicKeyToPEM(ed25519.PublicKey(publicKey))
+
+			// 写入私钥文件
+			if err := goutils.WriteText(cli.PrivateKey, privateKeyPEM); err != nil {
+				logger.Panic().Err(err).Str("path", cli.PrivateKey).Msg("Failed to write private key")
+			}
+			if err := os.Chmod(cli.PrivateKey, 0600); err != nil {
+				logger.Panic().Err(err).Str("path", cli.PrivateKey).Msg("Failed to set private key permissions")
+			}
+
+			// 写入公钥文件
+			if err := goutils.WriteText(cli.PublicKey, publicKeyPEM); err != nil {
+				logger.Panic().Err(err).Str("path", cli.PublicKey).Msg("Failed to write public key")
+			}
+			if err := os.Chmod(cli.PublicKey, 0644); err != nil {
+				logger.Panic().Err(err).Str("path", cli.PublicKey).Msg("Failed to set public key permissions")
+			}
+
+			logger.Info().Str("private_key", cli.PrivateKey).Str("public_key", cli.PublicKey).Msg("Key pair generated and saved")
+
+		} else if goutils.FileExists(cli.PrivateKey) && !goutils.FileExists(cli.PublicKey) {
+			logger.Panic().Msg("private key file exists, but public key file does not exist")
+		} else if !goutils.FileExists(cli.PrivateKey) && goutils.FileExists(cli.PublicKey) {
+			logger.Panic().Msg("public key file exists, but private key file does not exist")
 		}
 
-		// 写入公钥文件
-		if err := goutils.WriteText(cli.PublicKey, publicKeyPEM); err != nil {
-			logger.Panic().Err(err).Str("path", cli.PublicKey).Msg("Failed to write public key")
-		}
-		if err := os.Chmod(cli.PublicKey, 0644); err != nil {
-			logger.Panic().Err(err).Str("path", cli.PublicKey).Msg("Failed to set public key permissions")
-		}
-
-		logger.Info().Str("private_key", cli.PrivateKey).Str("public_key", cli.PublicKey).Msg("Key pair generated and saved")
 	}
 
 	// 创建 RPC 客户端
@@ -214,10 +232,10 @@ func cmdEntry(ctx context.Context) {
 		}
 
 		result, err := utils.SshExecute(ctx, utils.SshExecuteParams{
-			Host:    "localhost",
-			Port:    cli.SshPort,
-			User:    "root",
-			Command: "echo 'SSH connection successful'; hostname; whoami",
+			Host:          "localhost",
+			Port:          cli.SshPort,
+			User:          "root",
+			Command:       "echo 'SSH connection successful'; hostname; whoami",
 			PrivateKeyPem: privateKeyPEM,
 		})
 		if err != nil {
