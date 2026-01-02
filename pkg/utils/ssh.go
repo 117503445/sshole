@@ -13,7 +13,7 @@ type SshExecuteParams struct {
 	Port       int
 	User       string
 	Command    string
-	PrivateKey []byte
+	PrivateKeyPem []byte 
 }
 
 type SshExecuteResult struct {
@@ -23,16 +23,16 @@ type SshExecuteResult struct {
 
 func SshExecute(ctx context.Context, params SshExecuteParams) (SshExecuteResult, error) {
 	// 解析私钥
-	// signer, err := ssh.ParsePrivateKey(params.PrivateKey)
-	// if err != nil {
-	// 	return SshExecuteResult{}, fmt.Errorf("failed to parse private key: %w", err)
-	// }
+	signer, err := ssh.ParsePrivateKey(params.PrivateKeyPem)
+	if err != nil {
+		return SshExecuteResult{}, fmt.Errorf("failed to parse private key: %w", err)
+	}
 
 	// 创建 SSH 客户端配置
 	config := &ssh.ClientConfig{
 		User: params.User,
 		Auth: []ssh.AuthMethod{
-			// ssh.PublicKeys(signer),
+			ssh.PublicKeys(signer),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // 注意：生产环境中应该验证主机密钥
 	}
