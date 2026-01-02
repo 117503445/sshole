@@ -1,0 +1,48 @@
+version: 3
+
+tasks:
+  build:
+    deps: [":base:clear", ":gen:gen"]
+    sources:
+      - ./cmd/**
+      - ./internal/**
+      - ./pkg/**
+      - ./.git/**
+      - ./go.mod
+      - ./go.sum
+      - ./Taskfile.yml
+      - ./scripts/script/**
+    generates:
+      - ./data/agent/sshole_agent
+      - ./data/entry/sshole_entry
+      - ./data/hub/sshole_hub
+    cmds:
+      - cd ./scripts/script && go run . build
+
+  build-docker:
+    deps: [":base:clear", ":build:build"]
+    sources:
+      - ./scripts/docker/agent.Dockerfile
+      - ./data/agent/sshole_agent
+      - ./scripts/docker/hub.Dockerfile
+      - ./data/hub/sshole_hub
+      - ./scripts/docker/entry.Dockerfile
+      - ./data/entry/sshole_entry
+    cmds:
+      - cd ./scripts/script && go run . build-docker {{.CLI_ARGS}}
+
+  release:
+    deps: [":base:clear"]
+    sources:
+      - ./cmd/**
+      - ./internal/**
+      - ./pkg/**
+      - ./.git/**
+      - ./go.mod
+      - ./go.sum
+    generates:
+      - ./data/release/sshole_entry-*
+      - ./data/release/sshole_hub-linux-amd64
+      - ./data/release/sshole_agent-linux-amd64
+    cmds:
+      - cd ./scripts/script && go run . release

@@ -3,18 +3,21 @@
 
 version: "3"
 
+dotenv: [".env"]
+
+includes:
+  base:
+    taskfile: ./scripts/tasks/base
+  build:
+    taskfile: ./scripts/tasks/build
+  gen:
+    taskfile: ./scripts/tasks/gen
+  format:
+    taskfile: ./scripts/tasks/format
+
 tasks:
   default:
+    desc: "The default task"
+    deps: ["base:clear"]
     cmds:
-      - clear
-      - task: dev
-
-  dev:
-    cmds:
-      - go run ./cmd/sshole hub
-      # - go run ./cmd/sshole agent
-      # - go run ./cmd/sshole entry
-
-  gen:
-    cmds:
-      - buf generate
+      - task: base:dev
