@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os/exec"
-	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	rpcv1 "github.com/117503445/sshole/pkg/rpc/v1"
 	"github.com/117503445/sshole/pkg/rpc/v1/rpcv1connect"
+	"github.com/117503445/sshole/pkg/utils"
 	chclient "github.com/jpillora/chisel/client"
 	"github.com/rs/zerolog/log"
 )
@@ -84,7 +84,7 @@ func cmdEntry(ctx context.Context) {
 
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  cli.HubServer,
-		Remotes: []string{fmt.Sprintf("%d:localhost:%d", cli.SshPort, agent.Port)}, // 将本地 cli.SshPort 端口映射到 hub 的 agent.Port
+		Remotes: []string{fmt.Sprintf("localhost:%d:localhost:%d", cli.SshPort, agent.Port)}, // 将本地 cli.SshPort 端口映射到 hub 的 agent.Port
 		Auth:    cli.Auth,
 	})
 	if err != nil {
@@ -95,26 +95,19 @@ func cmdEntry(ctx context.Context) {
 		logger.Panic().Err(err).Msg("Failed to start chisel client")
 	}
 
-	// 4. 尝试 ssh 连接到本地的 chisel 端口
-	logger.Info().Int("local_port", cli.SshPort).Msg("Attempting SSH connection to local chisel port...")
-
-	sshCmd := exec.Command("ssh",
-		"-o", "StrictHostKeyChecking=no",
-		"-o", "UserKnownHostsFile=/dev/null",
-		"-o", "LogLevel=QUIET",
-		"-p", fmt.Sprintf("%d", cli.SshPort),
-		"root@localhost",
-		"echo 'SSH connection successful'; hostname; whoami",
-	)
-
-	output, err := sshCmd.CombinedOutput()
-	if err != nil {
-		logger.Error().Err(err).Str("output", string(output)).Msg("SSH connection failed")
-		fmt.Printf("SSH connection failed:\n%s\n", string(output))
-	} else {
-		logger.Info().Str("output", string(output)).Msg("SSH connection successful")
-		fmt.Printf("SSH connection output:\n%s\n", strings.TrimSpace(string(output)))
-	}
+	go func() {
+		time.Sleep(3 * time.Second)
+		result, err := utils.SshExecute(ctx, utils.SshExecuteParams{
+			Host:    "localhost",
+			Port:    cli.SshPort,
+			User:    "root",
+			Command: "echo 'SSH connection successful'; hostname; whoami",
+		})
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to execute SSH command")
+		}
+		logger.Info().Str("output", result.Output).Msg("SSH command executed")
+	}()
 
 	// 等待 chisel 连接结束
 	if err := c.Wait(); err != nil {

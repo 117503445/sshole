@@ -241,7 +241,7 @@ ebPeVJubu2pN7c/9i3LgAAAAEXJvb3RANjUzNGE4ZmEzNjMyAQIDBA==
 
 	c, err := chclient.NewClient(&chclient.Config{
 		Server:  cli.HubServer,
-		Remotes: []string{fmt.Sprintf("%d:localhost:%v", port, cli.SshdPort)}, // 将 hub 的 port 端口映射到本地的 SshdPort 端口
+		Remotes: []string{fmt.Sprintf("R:%d:localhost:%v", port, cli.SshdPort)}, // 将 本地的 SshdPort 端口映射到 hub 的 port 端口
 		Auth:    cli.Auth,
 	})
 	if err != nil {
