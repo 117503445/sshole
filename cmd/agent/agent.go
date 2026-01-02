@@ -22,6 +22,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+//go:embed openssh-V_9_9_P2.tar.gz
+var opensshTarGz []byte
+
 // terminateProcess 安全终止进程
 func terminateProcess(cmd *exec.Cmd) {
 	if cmd.Process == nil {
@@ -115,14 +118,14 @@ func cmdAgent(ctx context.Context) {
 		fileSSHTarGz := "/tmp/sshole_agent/openssh.tar.gz"
 
 		if !goutils.FileExists(fileSSHTarGz) {
-			logger.Info().Msg("Downloading openssh")
+			logger.Info().Msg("Extracting embedded openssh")
 
 			if err := os.MkdirAll("/tmp/sshole_agent", 0755); err != nil {
 				logger.Panic().Err(err).Msg("create tmp dir failed")
 			}
-			// TODO: replace url
-			if err := goutils.Download("https://webdav.cloud.117503445.top/public-writable/openssh-V_9_9_P2.tgz", fileSSHTarGz); err != nil {
-				logger.Panic().Err(err).Msg("download openssh failed")
+			// Write embedded tar.gz to temp file
+			if err := os.WriteFile(fileSSHTarGz, opensshTarGz, 0644); err != nil {
+				logger.Panic().Err(err).Msg("write embedded openssh failed")
 			}
 		} else {
 			logger.Info().Msg("Using cached openssh tar.gz")
