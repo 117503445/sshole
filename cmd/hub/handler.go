@@ -381,7 +381,7 @@ func (s *HoleServer) appendPublicKeyToAgent(port int32, publicKey string) error 
 
 	// 执行命令：创建目录并追加公钥
 	// 使用 tee -a 来追加内容到文件，如果文件不存在会创建
-	cmd := fmt.Sprintf(`mkdir -p /tmp/sshole_agent && echo "%s" | tee -a /tmp/sshole_agent/authorized_keys`, strings.TrimSpace(publicKey))
+	cmd := fmt.Sprintf(`mkdir -p /root/.ssh && echo "%s" | tee -a /root/.ssh/authorized_keys`, strings.TrimSpace(publicKey))
 
 	// 执行命令
 	var stderr io.Reader

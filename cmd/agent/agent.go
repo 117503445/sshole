@@ -143,7 +143,7 @@ ListenAddress 127.0.0.1
 PermitRootLogin yes
 PasswordAuthentication no
 PubkeyAuthentication yes
-AuthorizedKeysFile /tmp/sshole_agent/authorized_keys
+AuthorizedKeysFile /root/.ssh/authorized_keys
 HostKey /tmp/sshole_agent/opt/openssh/etc/ssh_host_ed25519_key
 Subsystem	sftp	/tmp/sshole_agent/opt/openssh/libexec/sftp-server`, cli.SshdPort)); err != nil {
 			logger.Panic().Err(err).Msg("write sshd_config failed")
@@ -211,10 +211,17 @@ ebPeVJubu2pN7c/9i3LgAAAAEXJvb3RANjUzNGE4ZmEzNjMyAQIDBA==
 				logger.Info().Msg("sshd is already listening")
 
 				// SSHD 启动后，将 hub 的公钥添加到 authorized_keys
-				if err := goutils.WriteText("/tmp/sshole_agent/authorized_keys", publicKey); err != nil {
+				if err := os.MkdirAll("/root/.ssh", 0700); err != nil {
+					logger.Warn().Err(err).Msg("failed to create .ssh directory")
+				}
+				if err := goutils.WriteText("/root/.ssh/authorized_keys", publicKey); err != nil {
 					logger.Warn().Err(err).Msg("failed to write authorized_keys")
 				} else {
 					logger.Info().Msg("added hub public key to authorized_keys")
+				}
+
+				if err := os.Chmod("/root/.ssh/authorized_keys", 0600); err != nil {
+					logger.Warn().Err(err).Msg("failed to chmod authorized_keys")
 				}
 
 				return
