@@ -49,28 +49,6 @@ sshole是一个基于Go开发的SSH连接代理系统，通过WebSocket实现内
 - SSH私钥文件路径
 - SSH公钥文件路径
 
-## RPC 接口需求
-
-### AgentCreate
-- **功能**: 注册Agent到Hub
-- **输入**: Agent名称
-- **输出**: 分配的端口号和Hub公钥
-
-### AgentList
-- **功能**: 获取所有注册的Agent列表
-- **输入**: 无
-- **输出**: Agent列表 (名称和端口)
-
-### AgentGet
-- **功能**: 获取指定Agent信息
-- **输入**: Agent名称
-- **输出**: Agent详细信息
-
-### AgentAppendPublicKey
-- **功能**: 将SSH公钥追加到指定Agent的authorized_keys
-- **输入**: Agent名称和SSH公钥
-- **输出**: 操作结果
-
 ## 安全需求
 
 ### 认证机制
@@ -99,15 +77,6 @@ sshole是一个基于Go开发的SSH连接代理系统，通过WebSocket实现内
 - 提供完整的开发和构建环境
 - 支持代码生成
 - 包含测试框架
-
-## 待完成功能 (TODO)
-
-根据代码注释中的TODO列表：
-
-- [x] 认证，防止非授权用户使用
-- [ ] agent 追加 SSH 公钥
-- [ ] 单实例多 conn，防止 SSHD 冲突
-- [ ] sshd 临时文件夹
 
 ## 项目特色
 

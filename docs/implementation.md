@@ -41,25 +41,39 @@
 
 基于Protocol Buffers和Connect RPC框架的API服务：
 
+### 服务架构
+- **框架**: Connect RPC (基于 Protocol Buffers)
+- **服务名**: `pkg.rpc.v1.HoleService`
+- **请求/响应格式**: `ApiRequest` / `ApiResponse`
+- **密钥管理**: Hub生成ed25519密钥对，用于SSH认证
+
 ### AgentCreate
 - **功能**: 注册Agent到Hub
 - **输入**: Agent名称
-- **输出**: 分配的端口号和Hub公钥
+- **输出**:
+  - 分配的端口号
+  - Hub的SSH公钥
+- **实现细节**: 动态分配端口，存储Agent信息到内存映射
 
 ### AgentList
 - **功能**: 获取所有注册的Agent列表
 - **输入**: 无
 - **输出**: Agent列表 (名称和端口)
+- **实现细节**: 返回内存中存储的所有Agent信息
 
 ### AgentGet
 - **功能**: 获取指定Agent信息
 - **输入**: Agent名称
 - **输出**: Agent详细信息
+- **实现细节**: 根据名称查找Agent信息
 
 ### AgentAppendPublicKey
 - **功能**: 将SSH公钥追加到指定Agent的authorized_keys
-- **输入**: Agent名称和SSH公钥
+- **输入**:
+  - Agent名称
+  - SSH公钥内容
 - **输出**: 操作结果
+- **实现细节**: 通过WebSocket连接向目标Agent发送公钥追加命令
 
 ## 安全实现
 
