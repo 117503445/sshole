@@ -115,8 +115,6 @@ sshole是一个基于Go开发的SSH连接代理系统，通过WebSocket实现内
 - [ ] agent 追加 SSH 公钥
 - [ ] 单实例多 conn，防止 SSHD 冲突
 - [ ] sshd 临时文件夹
-- [ ] 多版本 cli 的 fc 函数冲突
-- [ ] fc3 instance
 
 ## 项目特色
 

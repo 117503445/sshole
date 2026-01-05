@@ -36,10 +36,6 @@
 - `github.com/rs/zerolog`: 结构化日志
 - `golang.org/x/crypto/ssh`: SSH功能支持
 
-### 阿里云集成
-- `github.com/117503445/fc-go-sdk`: 函数计算SDK
-- `github.com/alibabacloud-go/fc-20230330/v4`: 阿里云FC服务
-
 ## 系统总结
 
 这个系统为开发者和运维人员提供了一种安全、便捷的方式来访问内网SSH资源，特别适用于云原生环境中的容器调试和运维场景。
