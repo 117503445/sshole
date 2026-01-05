@@ -6,7 +6,6 @@
 - **端口**: 9000 (HTTP/2 over cleartext)
 - **技术栈**: Connect RPC, WebSocket, HTTP/2
 - **路由**:
-  - `/bin`: 二进制文件下载服务
   - `/healthz`: 健康检查服务
 
 ### Agent (内网代理)

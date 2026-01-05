@@ -2,10 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"net/http"
-	"os"
 
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
@@ -32,43 +29,6 @@ func cmdHub(ctx context.Context) {
 		Msg("TunnelManager created")
 
 	mux := http.NewServeMux()
-
-	// 添加 /bin 路由处理器，用于返回二进制文件
-	mux.HandleFunc("/bin", func(w http.ResponseWriter, r *http.Request) {
-		// 获取当前执行的二进制文件路径
-		execPath, err := os.Executable()
-		if err != nil {
-			http.Error(w, "Failed to get executable path", http.StatusInternalServerError)
-			return
-		}
-
-		// 打开二进制文件
-		file, err := os.Open(execPath)
-		if err != nil {
-			http.Error(w, "Failed to open executable", http.StatusInternalServerError)
-			return
-		}
-		defer file.Close()
-
-		// 获取文件信息
-		fileInfo, err := file.Stat()
-		if err != nil {
-			http.Error(w, "Failed to get file info", http.StatusInternalServerError)
-			return
-		}
-
-		// 设置响应头
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Disposition", "attachment; filename=sshole")
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
-
-		// 将文件内容复制到响应中
-		_, err = io.Copy(w, file)
-		if err != nil {
-			logger.Error().Err(err).Msg("Failed to copy file to response")
-			return
-		}
-	})
 
 	// 添加 /healthz 路由处理器，用于健康检查
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {

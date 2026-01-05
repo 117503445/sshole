@@ -11,7 +11,6 @@ sshole是一个基于Go开发的SSH连接代理系统，通过WebSocket实现内
 - **功能**:
   - 作为WebSocket中转服务器处理Agent和Entry之间的数据转发
   - 提供RPC API管理Agent注册和查询
-  - 提供二进制文件下载服务
   - 提供健康检查服务
   - 实现认证机制防止非授权访问
 
