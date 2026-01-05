@@ -8,6 +8,7 @@ import (
 
 	"github.com/117503445/goutils/glog"
 	"github.com/alecthomas/kong"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,6 +21,7 @@ var cli struct {
 
 func init() {
 	glog.InitZeroLog()
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
 
 func main() {

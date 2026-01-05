@@ -16,8 +16,8 @@ import (
 	"github.com/117503445/goutils"
 	rpcv1 "github.com/117503445/sshole/pkg/rpc/v1"
 	"github.com/117503445/sshole/pkg/rpc/v1/rpcv1connect"
+	"github.com/117503445/sshole/pkg/tunnel"
 	"github.com/117503445/sshole/pkg/utils"
-	chclient "github.com/jpillora/chisel/client"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
 )
@@ -202,21 +202,37 @@ func cmdEntry(ctx context.Context) {
 
 	logger.Info().Str("agent", agent.Name).Msg("Public key appended to agent successfully")
 
-	// 4. 建立 chisel 连接，将本地端口映射到 hub 的 agent port
-	logger.Info().Msg("Creating chisel connection...")
+	// 4. 建立 tunnel 连接，将本地端口映射到 hub 的 agent port
+	logger.Info().Msg("Creating tunnel connection...")
 
-	c, err := chclient.NewClient(&chclient.Config{
-		Server:  cli.HubServer,
-		Remotes: []string{fmt.Sprintf("localhost:%d:localhost:%d", cli.SshPort, agent.Port)}, // 将本地 cli.SshPort 端口映射到 hub 的 agent.Port
-		Auth:    cli.Auth,
-	})
+	// Create TunnelManager for entry
+	tm := tunnel.NewTunnelManager("")
+	defer tm.Close()
+
+	// Build tunnel URL from hub server
+	tunnelURL := strings.TrimSuffix(cli.HubServer, "/") + "/tunnel"
+
+	// Connect to hub
+	conn, err := tm.Connect(tunnelURL, cli.Auth)
 	if err != nil {
-		logger.Panic().Err(err).Msg("Failed to create chisel client")
+		logger.Panic().Err(err).Msg("Failed to connect to hub")
 	}
 
-	if err := c.Start(ctx); err != nil {
-		logger.Panic().Err(err).Msg("Failed to start chisel client")
+	logger.Info().
+		Str("conn_id", conn.GetID()).
+		Msg("Connected to hub")
+
+	// Create LocalToRemote tunnel: local listens on 'cli.SshPort', forwards to hub's 'agent.Port'
+	tunnelID, err := tm.AddTunnel(conn.GetID(), "localToRemote", cli.SshPort, int(agent.Port))
+	if err != nil {
+		logger.Panic().Err(err).Msg("Failed to create tunnel")
 	}
+
+	logger.Info().
+		Str("tunnel_id", tunnelID).
+		Int("local_port", cli.SshPort).
+		Uint32("hub_port", agent.Port).
+		Msg("Tunnel created: local -> hub -> agent SSH")
 
 	go func() {
 		time.Sleep(3 * time.Second)
@@ -239,8 +255,10 @@ func cmdEntry(ctx context.Context) {
 		logger.Info().Str("output", result.Output).Msg("SSH command executed")
 	}()
 
-	// 等待 chisel 连接结束
-	if err := c.Wait(); err != nil {
-		logger.Panic().Err(err).Msg("Failed to wait chisel client")
+	// 等待连接断开
+	for conn.IsConnected() {
+		time.Sleep(1 * time.Second)
 	}
+
+	logger.Info().Msg("Connection closed")
 }

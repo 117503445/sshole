@@ -45,3 +45,6 @@ gotest
 
 data
 .task
+/hub
+/entry
+/agent

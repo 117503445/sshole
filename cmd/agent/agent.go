@@ -9,16 +9,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	"connectrpc.com/connect"
 	rpcv1 "github.com/117503445/sshole/pkg/rpc/v1"
 	"github.com/117503445/sshole/pkg/rpc/v1/rpcv1connect"
+	"github.com/117503445/sshole/pkg/tunnel"
 	"github.com/117503445/sshole/pkg/utils"
 
 	"github.com/117503445/goutils"
-	chclient "github.com/jpillora/chisel/client"
 	"github.com/rs/zerolog/log"
 )
 
@@ -254,20 +255,41 @@ ebPeVJubu2pN7c/9i3LgAAAAEXJvb3RANjUzNGE4ZmEzNjMyAQIDBA==
 	logger.Info().
 		Int("HubPort", int(port)).
 		Int("AgentPort", cli.SshdPort).
-		Msg("Starting chisel")
+		Msg("Starting tunnel connection")
 
-	c, err := chclient.NewClient(&chclient.Config{
-		Server:  cli.HubServer,
-		Remotes: []string{fmt.Sprintf("R:%d:localhost:%v", port, cli.SshdPort)}, // 将 本地的 SshdPort 端口映射到 hub 的 port 端口
-		Auth:    cli.Auth,
-	})
+	// Create TunnelManager for agent
+	tm := tunnel.NewTunnelManager("")
+	defer tm.Close()
+
+	// Build tunnel URL from hub server
+	tunnelURL := strings.TrimSuffix(cli.HubServer, "/") + "/tunnel"
+
+	// Connect to hub
+	conn, err := tm.Connect(tunnelURL, cli.Auth)
 	if err != nil {
-		logger.Panic().Err(err).Msg("Failed to create chisel client")
+		logger.Panic().Err(err).Msg("Failed to connect to hub")
 	}
-	if err := c.Start(ctx); err != nil {
-		logger.Panic().Err(err).Msg("Failed to start chisel client")
+
+	logger.Info().
+		Str("conn_id", conn.GetID()).
+		Msg("Connected to hub")
+
+	// Create RemoteToLocal tunnel: hub listens on 'port', forwards to local 'SshdPort'
+	tunnelID, err := tm.AddTunnel(conn.GetID(), "remoteToLocal", cli.SshdPort, int(port))
+	if err != nil {
+		logger.Panic().Err(err).Msg("Failed to create tunnel")
 	}
-	if err := c.Wait(); err != nil {
-		logger.Panic().Err(err).Msg("Failed to wait chisel client")
+
+	logger.Info().
+		Str("tunnel_id", tunnelID).
+		Int("hub_port", int(port)).
+		Int("local_port", cli.SshdPort).
+		Msg("Tunnel created: hub -> agent SSH")
+
+	// Wait for connection to close
+	for conn.IsConnected() {
+		time.Sleep(1 * time.Second)
 	}
+
+	logger.Info().Msg("Connection closed")
 }
