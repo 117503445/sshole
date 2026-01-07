@@ -684,25 +684,6 @@ const (
 )
 ```
 
-### 7.2 错误处理方法
-
-```go
-// pkg/common/errors.go - 错误处理方法
-// handleControlError 处理控制面错误
-func handleControlError(err error) *ControlError {
-    // 转换错误类型
-    // 添加上下文信息
-    // 记录日志
-}
-
-// validateAuth 验证鉴权
-func validateAuth(token string) error {
-    // 检查token格式
-    // 验证token有效性
-    // 返回错误或nil
-}
-```
-
 ---
 
 ## 8. 资源管理设计
