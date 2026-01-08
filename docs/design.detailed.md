@@ -8,1002 +8,706 @@
 
 ### 1.1 目的
 
-本文档在概要设计基础上，进一步细化到方法级别，明确每个组件的类结构、方法签名、职责分工及数据流向，为代码实现提供详细的技术指导。
+本文档在概要设计基础上，细化到方法级别，明确组件结构、关键数据结构、并发模型、状态机与超时策略、协议帧格式与关键边界条件，为代码实现提供直接指导。
 
 ### 1.2 设计目标
 
 * 方法职责明确、接口清晰
 * 数据结构完整、类型安全
-* 错误处理完善、状态管理清晰
-* 并发安全、资源管理合理
+* 状态机显式、超时策略确定
+* 并发安全、资源释放可靠
+* 控制面极简、数据面透明
 
 ---
 
 ## 2. 系统架构总览
 
-### 2.1 组件关系
+### 2.1 组件关系与包结构建议
+
+```text
+cmd/
+  hub/        # Hub 主程序
+  agent/      # Agent 主程序
+  entry/      # Entry（可选）
+pkg/
+  common/     # 通用类型、错误、工具
+  hub/        # Hub 核心实现
+  agent/      # Agent 核心实现
+  proto/      # 控制消息 JSON 结构定义（不是 proto 文件）
+  tunnel/     # /tunnel 握手帧与转发逻辑
+```
+
+### 2.2 核心类型定义
 
 ```go
-// pkg/common/types.go - 核心类型定义
-// Hub: 公网中转节点
+// pkg/common/types.go
+type AgentName = string
+type SessionID = string
+
+type ProtocolVersion struct{} // 全局单一版本：仅作为常量存在
+const SSHOLE_VERSION = 1
+```
+
+---
+
+## 3. 协议与数据流（实现级）
+
+## 3.1 WebSocket 端点
+
+* `/agent`：控制通道（**Text JSON only**，不允许 Binary）
+* `/tunnel`：数据通道（Binary），**第一帧必须是握手 header**，之后为纯 SSH 字节流
+
+---
+
+## 3.2 控制通道消息（Text JSON）
+
+### 3.2.1 OPEN（Hub → Agent）
+
+```go
+// pkg/proto/control.go
+type ControlMessage struct {
+    Type      string `json:"type"`
+    SessionID string `json:"session_id"`
+}
+```
+
+示例：
+
+```json
+{"type":"OPEN","session_id":"abc123"}
+```
+
+**约束：**
+
+* Hub → Agent 仅发送 `OPEN`
+* Agent 不需要 ACK（保持最小；实现中可打印日志即可）
+
+---
+
+## 3.3 /tunnel 轻量握手帧（固定长度 Binary Header）
+
+### 3.3.1 帧格式（固定长度）
+
+```go
+// pkg/tunnel/handshake.go
+const (
+    HandshakeMagicSize = 8
+    HandshakeSIDSize   = 16
+    HandshakeSize      = HandshakeMagicSize + HandshakeSIDSize
+)
+
+var HandshakeMagic = [8]byte{'S','S','H','O','L','E','0','1'}
+
+type HandshakeHeader struct {
+    Magic    [8]byte
+    Session  [16]byte // sessionId 的 16 字节表示（实现可用 UUID bytes 或 hash 截断）
+}
+```
+
+**语义：**
+
+* `/tunnel` 建连后，Agent 必须先发送 `HandshakeHeader`（一次性 24 bytes）
+* Hub 校验 Magic + session 对应 pending 状态
+* 校验通过后，Hub 才开始转发 SSH 字节流
+
+> 说明：你在概要里写了“sessionId raw/hash”，详细设计里固定为 16 bytes，具体生成策略在 6.3 说明。
+
+---
+
+## 4. Hub 组件详细设计
+
+## 4.1 Hub 主结构体
+
+```go
+// pkg/hub/hub.go
 type Hub struct {
-    tunnelServer  *TunnelServer     // 数据面服务
-    portAllocator *PortAllocator    // 端口分配器
+    cfg *HubConfig
+
+    // agentName -> agent runtime state（仅在线态信息）
+    agents map[string]*AgentState
+
+    // hubPort -> agentName（固定映射，从持久化加载，不改变）
+    ports map[int]string
+
+    // hubPort -> listener
+    listeners map[int]net.Listener
+
+    // sessionId -> pending
+    pending map[string]*PendingSession
+
+    mu sync.RWMutex
+
+    ctx    context.Context
+    cancel context.CancelFunc
 }
 
-// Agent: 内网代理节点
-type Agent struct {
-    config       *AgentConfig       // 配置信息
-    client       *ControlClient     // 控制面客户端
-    tunnelClient *TunnelClient      // 隧道客户端
-    heartbeat    *HeartbeatService  // 心跳服务
-}
+type AgentState struct {
+    Name AgentName
 
-// Entry: 本地入口增强（可选）
-type Entry struct {
-    config       *EntryConfig       // 配置信息
-    client       *ControlClient     // 控制面客户端
-    tunnelClient *TunnelClient      // 隧道客户端
-    localServer  *LocalServer       // 本地SSH服务器
+    // /agent 控制连接（在线态）
+    Control *WSConn
+
+    // 固定映射端口
+    HubPort int
+
+    ConnectedAt time.Time
 }
 ```
 
 ---
 
-## 3. Hub 组件详细设计
+## 4.2 Pending 会话结构与状态机
 
-### 3.1 Hub 主结构体
+### 4.2.1 状态机
+
+```text
+INIT -> OPEN_SENT -> BOUND -> CLOSED
+              \-> TIMEOUT
+```
+
+### 4.2.2 结构定义
 
 ```go
-// cmd/hub/hub.go - Hub 主结构体定义
-type Hub struct {
-    // 配置
-    config *HubConfig
+// pkg/hub/session.go
+type PendingState int
 
-    // 核心服务
-    tunnelServer  *TunnelServer
+const (
+    PendingINIT PendingState = iota
+    PendingOPEN_SENT
+    PendingBOUND
+    PendingTIMEOUT
+    PendingCLOSED
+)
 
-    // 状态管理
-    portAllocator *PortAllocator
+type PendingSession struct {
+    SessionID string
+    AgentName AgentName
 
-    // 并发控制
-    mu sync.RWMutex
+    SSHConn net.Conn // Hub 接入的 TCP(SSH client)
 
-    // 生命周期
-    ctx    context.Context
-    cancel context.CancelFunc
+    State PendingState
+
+    CreatedAt time.Time
+    Deadline time.Time
+
+    // tunnel ws 绑定后填充
+    Tunnel *WSConn
 }
 ```
 
-### 3.2 Hub 核心方法
+---
 
-#### 3.2.1 生命周期方法
+## 4.3 Hub 生命周期
 
 ```go
-// cmd/hub/hub.go - Hub 生命周期方法
-// NewHub 创建并初始化Hub实例
-func NewHub(config *HubConfig) (*Hub, error) {
-    // 初始化配置验证
-    // 创建Agent注册表
-    // 初始化端口分配器
-    // 创建控制面服务
-    // 创建数据面服务
-}
+// pkg/hub/hub.go
+func NewHub(cfg *HubConfig) (*Hub, error)
 
-// Start 启动Hub服务
-func (h *Hub) Start(ctx context.Context) error {
-    // 启动控制面服务
-    // 启动数据面服务
-    // 启动端口监听
-    // 启动健康检查
-}
+func (h *Hub) Start(ctx context.Context) error
+func (h *Hub) Stop() error
 ```
 
-#### 3.2.2 Agent管理方法
+### 4.3.1 Start 具体步骤
+
+1. `LoadPortMapping()`：加载 `agentName -> hubPort` 固定映射
+2. 启动 HTTP server：
+
+   * `GET /agent`：升级 WS，接收 Agent 控制连接
+   * `GET /tunnel`：升级 WS，处理隧道连接与握手
+   * RPC：`ListAgents`
+3. 对每个已映射 port 启动 SSH listener（`listen :hubPort`）
+
+   * 端口不可监听：**Hub 启动失败**（符合“端口分配不变”的约束）
+
+---
+
+## 4.4 /agent 控制连接处理（Hub 侧）
 
 ```go
-// cmd/hub/handler.go - Agent 管理方法
-// RegisterAgent 处理Agent注册请求
-func (h *Hub) RegisterAgent(ctx context.Context, req *RegisterRequest) (*RegisterResponse, error) {
-    // 验证鉴权信息
-    // 检查Agent是否已存在
-    // 分配或恢复hubPort
-    // 记录注册信息
-    // 启动端口监听
-}
-
-// UnregisterAgent 处理Agent注销请求
-func (h *Hub) UnregisterAgent(ctx context.Context, req *UnregisterRequest) error {
-    // 验证权限
-    // 停止对应端口监听
-    // 清理注册信息
-    // 关闭相关隧道
-}
-
-// Heartbeat 处理Agent心跳
-func (h *Hub) Heartbeat(ctx context.Context, req *HeartbeatRequest) (*HeartbeatResponse, error) {
-    // 更新Agent最后心跳时间
-    // 检查Agent状态
-    // 返回当前状态信息
-}
-
-// ListAgents 获取在线Agent列表
-func (h *Hub) ListAgents(ctx context.Context, req *ListAgentsRequest) (*ListAgentsResponse, error) {
-    // 获取所有在线Agent
-    // 过滤和排序
-    // 返回Agent信息列表
-}
+// pkg/hub/agent_ws.go
+func (h *Hub) handleAgentWS(w http.ResponseWriter, r *http.Request)
 ```
 
-### 3.3 数据面服务 (TunnelServer)
+**行为：**
 
-#### 3.3.1 TunnelServer 结构体
+1. 校验 token（细节可在 `Auth` 模块）
+2. 读取 headers：
 
-```go
-// pkg/tunnel/server.go - 数据面服务
-type TunnelServer struct {
-    hub          *Hub
-    portListeners map[int]*PortListener  // hubPort -> listener
-    tunnels       map[string]*Tunnel     // tunnelID -> tunnel
-    mu            sync.RWMutex
-}
-```
+   * `X-Agent`
+3. 升级为 WebSocket
+4. 注册到 `h.agents[agentName].Control`
+5. 连接断开时：
 
-#### 3.3.2 核心方法
+   * 清理 `Control`
+   * online=false
 
-```go
-// Serve 启动WebSocket服务
-func (ts *TunnelServer) Serve() http.Handler {
-    return http.HandlerFunc(ts.handleWebSocket)
-}
+**控制通道限制：**
 
-// handleWebSocket 处理WebSocket连接
-func (ts *TunnelServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-    // 升级HTTP连接到WebSocket
-    // 验证握手参数
-    // 创建隧道实例
-    // 启动数据转发
-}
+* 只允许 Text：
 
-// createTunnel 为SSH连接创建数据隧道
-func (ts *TunnelServer) createTunnel(
-    ctx context.Context,
-    agentName string,
-    localPort int,
-    wsConn *websocket.Conn,
-) (*Tunnel, error) {
-    // 查找目标Agent
-    // 建立到Agent的隧道连接
-    // 返回隧道实例
-}
-```
+  * 收到 Binary frame：立即关闭连接（protocol violation）
+* Hub 不需要从 Agent 接收任何业务消息（可忽略/丢弃，但仍需按 Text 处理）
 
-### 3.4 端口监听器 (PortListener)
+---
+
+## 4.5 SSH 入口监听（hubPort）与 OPEN 触发
+
+### 4.5.1 PortListener
 
 ```go
-// cmd/hub/port.go - 端口监听器（待创建）
+// pkg/hub/port_listener.go
 type PortListener struct {
-    hubPort    int
-    agentName  string
-    listener   net.Listener
-    hub        *Hub
-    activeConns map[string]net.Conn  // 活跃连接
-    mu         sync.RWMutex
+    Hub *Hub
+    HubPort int
+    AgentName AgentName
+    ln net.Listener
 }
 
-// Listen 启动SSH端口监听
-func (pl *PortListener) Listen(ctx context.Context) error {
-    // 绑定端口
-    // 启动accept循环
-}
-
-// acceptLoop 接受SSH连接
-func (pl *PortListener) acceptLoop(ctx context.Context) {
-    for {
-        // 接受TCP连接
-        // 为每个连接创建隧道
-        // 处理连接生命周期
-    }
-}
+func (pl *PortListener) Serve(ctx context.Context) error
 ```
 
-### 3.5 隧道 (Tunnel)
+### 4.5.2 accept 处理逻辑
 
 ```go
-// pkg/tunnel/tunnel.go - 隧道实现
-type Tunnel struct {
-    ID         string
-    AgentName  string
-    LocalPort  int
-    SSHConn    net.Conn        // SSH客户端连接
-    TunnelConn *websocket.Conn // 到Agent的WebSocket连接
-    ctx        context.Context
-    cancel     context.CancelFunc
-}
-
-// Start 启动隧道数据转发
-func (t *Tunnel) Start() error {
-    // 启动双向数据转发
-    // 处理连接关闭
-}
-
-// forward 从SSH到WebSocket
-func (t *Tunnel) forwardSSHToWS() {
-    // 读取SSH TCP数据
-    // 直接通过WebSocket发送原始字节
-}
-
-// forward 从WebSocket到SSH
-func (t *Tunnel) forwardWSToSSH() {
-    // 直接从WebSocket读取原始字节
-    // 发送到SSH TCP连接
-}
+// pkg/hub/ssh_accept.go
+func (h *Hub) onSSHConn(agentName AgentName, sshConn net.Conn)
 ```
+
+**步骤：**
+
+1. 生成 `sessionId`
+2. 创建 `PendingSession{State: INIT}`，写入 `h.pending[sessionId]`
+3. 更新为 `OPEN_SENT`，并通过 agent 控制连接发送：
+
+```json
+{"type":"OPEN","session_id":"..."}
+```
+
+4. 等待 /tunnel 绑定（见 4.6），超时则：
+
+   * `State = TIMEOUT`
+   * 关闭 sshConn
+   * 从 map 清理
 
 ---
 
-## 4. Agent 组件详细设计
-
-### 4.1 Agent 主结构体
+## 4.6 /tunnel 连接处理（Hub 侧）
 
 ```go
-// cmd/agent/agent.go - Agent 主结构体
+// pkg/hub/tunnel_ws.go
+func (h *Hub) handleTunnelWS(w http.ResponseWriter, r *http.Request)
+```
+
+### 4.6.1 处理步骤
+
+1. 校验 token
+2. 读取 headers：
+
+   * `X-Agent`
+   * `X-Session`
+3. 升级 WS（Binary）
+4. 读取**第一帧**，必须满足：
+
+   * 固定长度 `HandshakeSize`
+   * Magic 匹配
+   * Session bytes 与 `X-Session` 对应（见 6.3 的转换函数）
+5. Pending 匹配：
+
+   * `pending[sessionId]` 必须存在
+   * `pending.AgentName` 必须与 `X-Agent` 一致
+   * `pending.State` 必须是 `OPEN_SENT`
+   * `pending.Tunnel` 必须为空（否则为重复 dial-back）
+6. 绑定成功：
+
+   * `pending.Tunnel = ws`
+   * `pending.State = BOUND`
+   * 启动转发：`sshConn <-> ws`
+7. 绑定失败（包括重复 dial-back）：
+
+   * 立即关闭 ws，返回原因写日志
+
+### 4.6.2 重复 dial-back
+
+当 `pending.Tunnel != nil` 或 state 不是可绑定态：
+
+* 视为重复 dial-back 或非法连接
+* Hub **直接 close** 当前 `/tunnel` WS
+* 不影响已绑定会话
+
+---
+
+## 4.7 数据转发实现（Hub 侧）
+
+```go
+// pkg/hub/forward.go
+func (h *Hub) startForwarding(p *PendingSession) error
+```
+
+**模型：**
+
+* 双向 copy：
+
+  * SSH TCP → WS (binary frames)
+  * WS → SSH TCP
+
+**结束条件：**
+
+* 任一方向出错或 EOF：
+
+  * 关闭两端连接
+  * `State = CLOSED`
+  * 从 pending map 删除
+
+---
+
+## 4.8 ListAgents RPC（Hub）
+
+```go
+// pkg/hub/rpc.go
+type AgentInfo struct {
+    AgentName string `json:"agent_name"`
+    HubPort   int    `json:"hub_port"`
+    Online    bool   `json:"online"`
+}
+
+func (h *Hub) ListAgents(ctx context.Context) ([]AgentInfo, error)
+```
+
+Online 判断：`h.agents[name].Control != nil`
+
+---
+
+## 5. Agent 组件详细设计
+
+## 5.1 Agent 主结构体
+
+```go
+// pkg/agent/agent.go
 type Agent struct {
-    config       *AgentConfig
-    client       *ControlClient
-    tunnelClient *TunnelClient
-    heartbeat    *HeartbeatService
+    cfg *AgentConfig
 
-    // 状态
-    hubPort      int
-    registered   bool
-    lastHeartbeat time.Time
+    // /agent 长连接（控制）
+    control *ControlClient
 
-    // 并发控制
-    mu sync.RWMutex
+    // dial /tunnel 的客户端
+    tunnel *TunnelClient
 
-    // 生命周期
     ctx    context.Context
     cancel context.CancelFunc
 }
 ```
 
-### 4.2 Agent 核心方法
+---
 
-#### 4.2.1 生命周期方法
+## 5.2 Agent 生命周期
 
 ```go
-// cmd/agent/agent.go - Agent 生命周期方法
-// NewAgent 创建Agent实例
-func NewAgent(config *AgentConfig) (*Agent, error) {
-    // 验证配置
-    // 创建客户端
-    // 初始化心跳服务
-}
-
-// Start 启动Agent
-func (a *Agent) Start(ctx context.Context) error {
-    // 连接到Hub
-    // 注册Agent
-    // 启动心跳
-    // 启动隧道监听
-}
+func NewAgent(cfg *AgentConfig) (*Agent, error)
+func (a *Agent) Start(ctx context.Context) error
 ```
 
-#### 4.2.2 注册与心跳
+### 5.2.1 Start 行为
+
+1. 建立 `/agent` WS 长连接
+2. 进入 read loop，持续读取 Text JSON
+3. 收到 `OPEN(sessionId)`：
+
+   * 启动 goroutine：`handleOpen(sessionId)`
+4. 控制连接断开：
+
+   * 按重试策略重连
+   * **重试发现无法建连 → 记录错误并退出进程**
+
+---
+
+## 5.3 ControlClient（Agent 侧）
 
 ```go
-// cmd/agent/agent.go - Agent 注册与心跳方法
-// Register 向Hub注册
-func (a *Agent) Register(ctx context.Context) error {
-    // 构建注册请求
-    // 调用Hub注册接口
-    // 保存分配的hubPort
-    // 标记为已注册
+// pkg/agent/control_client.go
+type ControlClient struct {
+    cfg *AgentConfig
+    ws  *websocket.Conn
 }
 
-// sendHeartbeat 发送心跳
-func (a *Agent) sendHeartbeat(ctx context.Context) error {
-    // 检查注册状态
-    // 发送心跳请求
-    // 更新最后心跳时间
-}
+func (cc *ControlClient) Connect(ctx context.Context) error
+func (cc *ControlClient) ReadLoop(ctx context.Context, onOpen func(sessionID string)) error
 ```
 
-### 4.3 隧道客户端 (TunnelClient)
+**强约束：**
+
+* 收到 Binary frame：视为协议错误（可直接断开并重连）
+* 只解析 JSON Text
+
+---
+
+## 5.4 TunnelClient（Agent 侧）
 
 ```go
-// pkg/tunnel/client.go - 隧道客户端
+// pkg/agent/tunnel_client.go
 type TunnelClient struct {
-    config *AgentConfig
-    hub    *websocket.Dialer
+    cfg *AgentConfig
 }
 
-// Connect 连接到Hub的隧道服务
-func (tc *TunnelClient) Connect(
-    ctx context.Context,
-    tunnelID string,
-    localPort int,
-) (*TunnelConnection, error) {
-    // 建立WebSocket连接
-    // 发送握手信息
-    // 返回连接实例
-}
+func (tc *TunnelClient) Dial(ctx context.Context, sessionID string) (*TunnelConn, error)
 ```
 
-### 4.4 隧道连接 (TunnelConnection)
+Dial 步骤：
 
-```go
-// pkg/tunnel/client.go - 隧道连接实现
-type TunnelConnection struct {
-    wsConn    *websocket.Conn
-    localConn net.Conn
-    ctx       context.Context
-    cancel    context.CancelFunc
-}
+1. `wss://hub/tunnel` 建连，带 headers：
 
-// Start 启动数据转发
-func (tc *TunnelConnection) Start() error {
-    // 连接到本地SSHD
-    // 启动双向转发
-}
-
-// forward 从WebSocket到本地
-func (tc *TunnelConnection) forwardWSToLocal() {
-    // 读取WebSocket数据
-    // 转发到本地SSHD
-}
-
-// forward 从本地到WebSocket
-func (tc *TunnelConnection) forwardLocalToWS() {
-    // 读取本地SSHD数据
-    // 转发到WebSocket
-}
-```
+   * `Authorization`
+   * `X-Agent`
+   * `X-Session`
+2. 发送第一帧握手 header（固定 24 bytes）
+3. 连接本地 `127.0.0.1:localPort`
+4. 返回 TunnelConn 进入转发
 
 ---
 
-## 5. Entry 组件详细设计
-
-### 5.1 Entry 主结构体
+## 5.5 TunnelConn（Agent 侧转发）
 
 ```go
-// cmd/entry/entry.go - Entry 主结构体
-type Entry struct {
-    config       *EntryConfig
-    client       *ControlClient
-    tunnelClient *TunnelClient
-    localServer  *LocalServer
-
-    // 状态
-    connectedAgent string
-    localPort      int
-
-    // 并发控制
-    mu sync.RWMutex
+// pkg/agent/tunnel_conn.go
+type TunnelConn struct {
+    ws   *websocket.Conn
+    local net.Conn
 }
+
+func (tc *TunnelConn) Start(ctx context.Context) error
 ```
 
-### 5.2 Entry 核心方法
+转发模型同 Hub：
 
-#### 5.2.1 生命周期方法
+* local TCP ↔ WS binary
 
-```go
-// cmd/entry/entry.go - Entry 生命周期方法
-// NewEntry 创建Entry实例
-func NewEntry(config *EntryConfig) (*Entry, error) {
-    // 验证配置
-    // 创建客户端
-    // 初始化本地服务器
-}
+结束条件：
 
-// Start 启动Entry服务
-func (e *Entry) Start(ctx context.Context) error {
-    // 启动本地SSH服务器
-    // 启动管理接口
-}
-```
-
-#### 5.2.2 连接管理
-
-```go
-// cmd/entry/entry.go - Entry 连接管理方法
-// Connect 连接到指定Agent
-func (e *Entry) Connect(ctx context.Context, agentName string) error {
-    // 检查Agent状态
-    // 创建隧道连接
-    // 启动本地监听
-    // 更新连接状态
-}
-
-// Disconnect 断开连接
-func (e *Entry) Disconnect() error {
-    // 关闭本地监听
-    // 断开隧道连接
-    // 清理状态
-}
-```
-
-### 5.3 本地服务器 (LocalServer)
-
-```go
-// cmd/entry/server.go - 本地服务器（待创建）
-type LocalServer struct {
-    entry      *Entry
-    listener   net.Listener
-    activeConns map[string]net.Conn
-    mu         sync.RWMutex
-}
-
-// Listen 启动本地SSH监听
-func (ls *LocalServer) Listen(ctx context.Context, port int) error {
-    // 绑定本地端口
-    // 启动accept循环
-}
-
-// acceptLoop 处理本地SSH连接
-func (ls *LocalServer) acceptLoop(ctx context.Context) {
-    for {
-        // 接受本地连接
-        // 创建到Hub的隧道
-        // 启动数据转发
-    }
-}
-```
+* 任一方向错误：关闭两端
 
 ---
 
-## 6. 数据结构设计
-
-### 6.1 配置结构
-
-#### 6.1.1 Hub配置
+## 5.6 Agent 重连失败即退出（明确策略）
 
 ```go
-// cmd/hub/main.go - Hub CLI 配置（使用 kong 库）
-var cli struct {
-    Auth       string `env:"AUTH"`
-    PortRange  string `env:"PORT_RANGE" default:"49152-65535"`
+// pkg/agent/retry.go
+type RetryPolicy struct {
+    MaxRetries int           // 建议 3
+    Backoff    time.Duration // 建议 1s，失败递增到上限
 }
 
-// HubConfig 运行时配置（从 CLI 参数转换）
+func (a *Agent) runWithReconnect(ctx context.Context) error
+```
+
+规则：
+
+* `/agent` 断线后重连
+* 重连达到 MaxRetries 仍失败：
+
+  * 打印 error（含 hub 地址、agentName）
+  * **os.Exit(1)** 或返回致命错误由 main 退出
+
+---
+
+## 6. 数据结构与配置
+
+## 6.1 Hub 配置
+
+```go
+// pkg/hub/config.go
 type HubConfig struct {
-    // 鉴权配置
     AuthToken string
 
-    // 网络配置（硬编码或从环境变量读取）
-    ControlAddr string // 控制面监听地址，默认 ":8080"
-    TunnelAddr  string // 数据面监听地址，默认 ":8081"
+    HTTPAddr string // 默认 ":8080"
 
-    // 端口分配
-    PortRange string // 端口范围表达式，如 "2000-3000,3004,4000-4001"
+    PendingTimeout time.Duration // 10s
+    TunnelDialTimeout time.Duration // 5s
 
-    // 超时配置
-    AgentTimeout time.Duration
-
-    // 日志配置
-    LogLevel string
-}
-
-// newHubConfig 从 CLI 参数创建配置
-func newHubConfig() *HubConfig {
-    return &HubConfig{
-        AuthToken:    cli.Auth,
-        ControlAddr:  ":8080", // 可以从环境变量读取
-        TunnelAddr:   ":8081", // 可以从环境变量读取
-        PortRange:    cli.PortRange, // 默认 "49152-65535"
-        AgentTimeout: 5 * time.Minute,
-        LogLevel:     "info",
-    }
-}
-
-// 需要导入的包
-import (
-    "os"
-    "time"
-)
-```
-
-#### 6.1.2 Agent配置
-
-```go
-// cmd/agent/main.go - Agent CLI 配置（使用 kong 库）
-var cli struct {
-    HubServer string `env:"HUB_SERVER"`
-    Auth      string `env:"AUTH"`
-    Name      string `env:"NAME"`
-    SshdPort  int    `env:"SSHD_PORT" default:"22222"`
-}
-
-// AgentConfig 运行时配置（从 CLI 参数转换）
-type AgentConfig struct {
-    // Hub连接
-    HubAddr   string
-    AuthToken string
-
-    // Agent信息
-    Name      string
-    LocalPort int
-
-    // 心跳配置
-    HeartbeatInterval time.Duration
-    MaxRetries        int
-}
-
-// newAgentConfig 从 CLI 参数创建配置
-func newAgentConfig() *AgentConfig {
-    name := cli.Name
-    if name == "" {
-        // 使用主机名作为默认名称
-        hostname, _ := os.Hostname()
-        name = hostname
-    }
-
-    return &AgentConfig{
-        HubAddr:           cli.HubServer,
-        AuthToken:         cli.Auth,
-        Name:              name,
-        LocalPort:         cli.SshdPort,
-        HeartbeatInterval: 30 * time.Second,
-        MaxRetries:        3,
-    }
-}
-
-// 需要导入的包
-import (
-    "os"
-    "time"
-)
-```
-
-#### 6.1.3 Entry配置
-
-```go
-// cmd/entry/main.go - Entry CLI 配置（使用 kong 库）
-var cli struct {
-    HubServer  string `env:"HUB_SERVER"`
-    Auth       string `env:"AUTH"`
-    AgentName  string `env:"AGENT_NAME"`
-    SshPort    int    `env:"SSH_PORT" default:"22222"`
-    PrivateKey string `env:"PRIVATE_KEY" description:"The path to the private key pam file"`
-    PublicKey  string `env:"PUBLIC_KEY" description:"The path to the public key pam file"`
-}
-
-// EntryConfig 运行时配置（从 CLI 参数转换）
-type EntryConfig struct {
-    // Hub连接
-    HubAddr   string
-    AuthToken string
-
-    // 本地配置
-    LocalPort    int
-    DefaultAgent string
-
-    // 密钥配置
-    PrivateKeyPath string
-    PublicKeyPath  string
-}
-
-// newEntryConfig 从 CLI 参数创建配置
-func newEntryConfig() *EntryConfig {
-    return &EntryConfig{
-        HubAddr:        cli.HubServer,
-        AuthToken:      cli.Auth,
-        LocalPort:      cli.SshPort,
-        DefaultAgent:   cli.AgentName,
-        PrivateKeyPath: cli.PrivateKey,
-        PublicKeyPath:  cli.PublicKey,
-    }
-}
-
-// 不需要额外的导入
-```
-
-### 6.2 协议消息
-
-#### 6.2.1 控制面消息
-
-```go
-// pkg/rpc/v1/sshole.pb.go - 控制面消息（Protocol Buffers 生成）
-type RegisterRequest struct {
-    AgentName string `json:"agent_name"`
-    AuthToken string `json:"auth_token"`
-}
-
-type RegisterResponse struct {
-    HubPort   int    `json:"hub_port"`
-    ExpiresAt int64  `json:"expires_at"`
-}
-
-// 心跳消息
-type HeartbeatRequest struct {
-    AgentName string `json:"agent_name"`
-}
-
-type HeartbeatResponse struct {
-    Status    string `json:"status"`
-    Timestamp int64  `json:"timestamp"`
-}
-
-// Agent列表
-type ListAgentsRequest struct {
-    Filter string `json:"filter,omitempty"`
-}
-
-type ListAgentsResponse struct {
-    Agents []AgentInfo `json:"agents"`
-}
-
-type AgentInfo struct {
-    Name       string `json:"name"`
-    HubPort    int    `json:"hub_port"`
-    Status     string `json:"status"`
-    LastSeen   int64  `json:"last_seen"`
-    ConnectedAt int64 `json:"connected_at"`
+    MappingFile string // 端口映射持久化文件
 }
 ```
 
-#### 6.2.2 WebSocket隧道协议
+---
 
-WebSocket连接建立后直接传输原始TCP数据，无控制协议：
+## 6.2 Hub 端口映射（固定，不变）
+
+**原则：**
+
+* Hub 启动时从 `MappingFile` 加载 `agentName -> hubPort`
+* 运行中不重新分配、不迁移、不回收
+* Hub 启动时无法监听某个已分配端口：**启动失败**（保证“不变”）
 
 ```go
-// WebSocket握手通过URL参数传递元信息
-// 例如: ws://hub/tunnel?agent=agent1&port=22
+// pkg/hub/port_mapping.go
+type PortMapping struct {
+    Agents map[string]int `json:"agents"` // agentName -> hubPort
+}
 
-// 之后WebSocket直接传输原始TCP字节流
-// 无消息类型、无控制帧、无封装
+func LoadMapping(path string) (*PortMapping, error)
+```
+
+---
+
+## 6.3 sessionId 与 16-byte session bytes 的转换
+
+你要求握手 header 的 session 字段是固定 16 bytes，因此需要一个确定性转换：
+
+```go
+// pkg/tunnel/session_bytes.go
+func SessionIDTo16Bytes(sessionID string) [16]byte {
+    // 允许实现策略：
+    // 1) 若 sessionID 是 UUID 字符串 -> 解析为 16 bytes
+    // 2) 否则 hash(sessionID) 截断 16 bytes（如 sha256）
+}
+```
+
+约束：
+
+* Hub 与 Agent 必须使用同一转换函数（同一包复用）
+
+---
+
+## 6.4 超时参数（全局显式）
+
+```go
+// pkg/common/timeouts.go
+type Timeouts struct {
+    PendingTimeout    time.Duration // 10s
+    TunnelDialTimeout time.Duration // 5s
+    AgentReconnectMaxRetries int    // 3
+    AgentReconnectBackoff    time.Duration // 1s（递增到上限可选）
+}
 ```
 
 ---
 
 ## 7. 错误处理设计
 
-### 7.1 错误类型
+## 7.1 错误码（最小集）
 
 ```go
-// pkg/common/errors.go - 错误处理类型
-// 控制面错误
-type ControlError struct {
-    Code    string `json:"code"`
-    Message string `json:"message"`
-    Details map[string]interface{} `json:"details,omitempty"`
-}
+// pkg/common/errors.go
+type ErrCode string
 
-func (e *ControlError) Error() string {
-    return fmt.Sprintf("[%s] %s", e.Code, e.Message)
-}
-
-// 预定义错误码
 const (
-    ErrCodeAuthFailed     = "AUTH_FAILED"
-    ErrCodeAgentNotFound  = "AGENT_NOT_FOUND"
-    ErrCodeAgentOffline   = "AGENT_OFFLINE"
-    ErrCodeResourceExhausted = "RESOURCE_EXHAUSTED"
-    ErrCodeInternal       = "INTERNAL_ERROR"
+    ErrAuthFailed      ErrCode = "AUTH_FAILED"
+    ErrAgentOffline    ErrCode = "AGENT_OFFLINE"
+    ErrSessionNotFound ErrCode = "SESSION_NOT_FOUND"
+    ErrSessionMismatch ErrCode = "SESSION_MISMATCH"
+    ErrDuplicateTunnel ErrCode = "DUPLICATE_TUNNEL"
+    ErrHandshakeFailed ErrCode = "HANDSHAKE_FAILED"
+    ErrTimeout         ErrCode = "TIMEOUT"
 )
 ```
 
----
+Hub 对外（SSH）失败策略：
 
-## 8. 资源管理设计
-
-### 8.1 连接池管理
-
-```go
-// pkg/common/pool.go - 连接池管理（待创建）
-type ConnectionPool struct {
-    pool   chan net.Conn
-    mu     sync.Mutex
-    closed bool
-}
-
-// Get 获取连接
-func (cp *ConnectionPool) Get(ctx context.Context) (net.Conn, error) {
-    select {
-    case conn := <-cp.pool:
-        return conn, nil
-    case <-ctx.Done():
-        return nil, ctx.Err()
-    default:
-        return cp.createConnection()
-    }
-}
-
-// Put 归还连接
-func (cp *ConnectionPool) Put(conn net.Conn) {
-    cp.mu.Lock()
-    defer cp.mu.Unlock()
-    if !cp.closed {
-        select {
-        case cp.pool <- conn:
-        default:
-            conn.Close()
-        }
-    } else {
-        conn.Close()
-    }
-}
-```
-
-### 8.2 端口分配器
-
-```go
-type PortAllocator struct {
-    filePath  string           // JSON文件路径
-    allocated map[int]string   // port -> agentName
-    available []int
-    mu        sync.Mutex
-}
-
-// NewPortAllocator 创建端口分配器
-func NewPortAllocator(filePath string, portRangeExpr string) (*PortAllocator, error) {
-    pa := &PortAllocator{
-        filePath:  filePath,
-        allocated: make(map[int]string),
-        available: make([]int, 0),
-    }
-
-    // 解析端口范围表达式
-    availablePorts, err := parsePortRange(portRangeExpr)
-    if err != nil {
-        return nil, err
-    }
-    pa.available = availablePorts
-
-    // 从文件加载已分配端口
-    if err := pa.loadFromFile(); err != nil {
-        return nil, err
-    }
-
-    return pa, nil
-}
-
-// parsePortRange 解析端口范围表达式，如 "2000-3000,3004,4000-4001"
-func parsePortRange(expr string) ([]int, error) {
-    var ports []int
-    ranges := strings.Split(expr, ",")
-
-    for _, r := range ranges {
-        r = strings.TrimSpace(r)
-        if strings.Contains(r, "-") {
-            // 处理范围，如 "2000-3000"
-            parts := strings.Split(r, "-")
-            if len(parts) != 2 {
-                return nil, fmt.Errorf("invalid range format: %s", r)
-            }
-            start, err := strconv.Atoi(strings.TrimSpace(parts[0]))
-            if err != nil {
-                return nil, err
-            }
-            end, err := strconv.Atoi(strings.TrimSpace(parts[1]))
-            if err != nil {
-                return nil, err
-            }
-            for port := start; port <= end; port++ {
-                ports = append(ports, port)
-            }
-        } else {
-            // 处理单个端口，如 "3004"
-            port, err := strconv.Atoi(strings.TrimSpace(r))
-            if err != nil {
-                return nil, err
-            }
-            ports = append(ports, port)
-        }
-    }
-
-    return ports, nil
-}
-
-// 需要导入的包
-import (
-    "fmt"
-    "strconv"
-    "strings"
-)
-
-// Allocate 分配端口
-func (pa *PortAllocator) Allocate(agentName string) (int, error) {
-    pa.mu.Lock()
-    defer pa.mu.Unlock()
-
-    // 检查是否已有分配
-    for port, name := range pa.allocated {
-        if name == agentName {
-            return port, nil
-        }
-    }
-
-    // 分配新端口
-    if len(pa.available) == 0 {
-        return 0, errors.New("no available ports")
-    }
-
-    port := pa.available[0]
-    pa.available = pa.available[1:]
-    pa.allocated[port] = agentName
-
-    // 持久化到文件
-    if err := pa.saveToFile(); err != nil {
-        return 0, err
-    }
-
-    return port, nil
-}
-
-// Release 释放端口
-func (pa *PortAllocator) Release(agentName string) error {
-    pa.mu.Lock()
-    defer pa.mu.Unlock()
-
-    // 查找并释放端口
-    for port, name := range pa.allocated {
-        if name == agentName {
-            delete(pa.allocated, port)
-            pa.available = append(pa.available, port)
-
-            // 持久化到文件
-            return pa.saveToFile()
-        }
-    }
-
-    return errors.New("agent not found")
-}
-
-// loadFromFile 从JSON文件加载分配状态
-func (pa *PortAllocator) loadFromFile() error {
-    data, err := os.ReadFile(pa.filePath)
-    if os.IsNotExist(err) {
-        return nil // 文件不存在，使用默认状态
-    }
-    if err != nil {
-        return err
-    }
-
-    var state PortAllocationState
-    if err := json.Unmarshal(data, &state); err != nil {
-        return err
-    }
-
-    // 恢复分配状态
-    pa.allocated = state.Allocated
-
-    // 重建可用端口列表
-    available := make([]int, 0)
-    for port := pa.available[0]; port <= pa.available[len(pa.available)-1]; port++ {
-        if _, allocated := pa.allocated[port]; !allocated {
-            available = append(available, port)
-        }
-    }
-    pa.available = available
-
-    return nil
-}
-
-// saveToFile 保存分配状态到JSON文件
-func (pa *PortAllocator) saveToFile() error {
-    state := PortAllocationState{
-        Allocated: pa.allocated,
-    }
-
-    data, err := json.MarshalIndent(state, "", "  ")
-    if err != nil {
-        return err
-    }
-
-    return os.WriteFile(pa.filePath, data, 0644)
-}
-
-type PortAllocationState struct {
-    Allocated map[int]string `json:"allocated"`
-}
-```
+* 直接断开 SSH TCP（SSH 客户端得到连接断开即可）
 
 ---
 
-## 9. 测试设计
+## 8. 并发与资源管理
 
-### 9.1 单元测试结构
+### 8.1 Hub 并发模型
 
-```go
-// Hub_test.go
-func TestHub_RegisterAgent(t *testing.T) {
-    // 创建测试Hub
-    // 模拟注册请求
-    // 验证响应
-    // 检查状态
-}
+* 每个 `hubPort` 一个 accept loop
+* 每个 SSH 连接一个 goroutine
+* 每个 `/tunnel` WS 一个 goroutine（绑定后进入转发）
+* `pending`、`agents`、`ports` 访问均通过 `mu` 保护
 
-func TestHub_PortAllocation(t *testing.T) {
-    // 测试端口分配逻辑
-    // 测试端口回收
-    // 测试并发分配
-}
+### 8.2 资源释放顺序（强制）
 
-// Agent_test.go
-func TestAgent_Registration(t *testing.T) {
-    // 模拟Hub服务
-    // 测试注册流程
-    // 验证心跳机制
-}
-```
+会话结束时（任一侧断开）：
 
-### 9.2 集成测试
-
-```go
-// hub_agent_integration_test.go
-func TestHubAgentIntegration(t *testing.T) {
-    // 启动测试Hub
-    // 启动测试Agent
-    // 执行SSH连接测试
-    // 验证数据传输
-}
-```
+1. close SSH TCP
+2. close WS tunnel
+3. 从 pending map 删除
+4. 记录关闭原因/时长（日志）
 
 ---
 
-## 10. 部署与运维设计
+## 9. Entry（可选）详细设计
 
-### 10.1 配置管理
-
-配置通过 CLI 参数和环境变量管理，使用 kong 库进行解析：
+Entry 仅做 TCP↔TCP 转发，不参与 WS：
 
 ```go
-// 各组件使用 kong 库解析 CLI 参数
-// cmd/hub/main.go, cmd/agent/main.go, cmd/entry/main.go
-import "github.com/alecthomas/kong"
-
-var cli struct {
-    // 组件特定的 CLI 参数定义
-    // 使用 env 标签绑定环境变量
-    // 使用 default 标签设置默认值
+// pkg/entry/entry.go
+type Entry struct {
+    cfg *EntryConfig
+    hub HubClient
 }
 
-func main() {
-    kong.Parse(&cli)
-    // 使用 cli 变量中的配置
+type EntryConfig struct {
+    HubAddr string
+    AuthToken string
+    EntryPort int
+    AgentName string
 }
 ```
 
-配置转换函数将 CLI 参数转换为内部配置结构：
+流程：
 
-```go
-// pkg/common/config.go - 配置转换工具
-// newHubConfig, newAgentConfig, newEntryConfig 函数
-// 将 CLI 参数转换为对应的 Config 结构体
-```
-
-### 10.2 健康检查
-
-```go
-// cmd/hub/health.go - 健康检查服务（待创建）
-type HealthChecker struct {
-    hub *Hub
-}
-
-// CheckHealth 检查系统健康状态
-func (hc *HealthChecker) CheckHealth() HealthStatus {
-    return HealthStatus{
-        Status:  "healthy",
-        Checks: map[string]CheckResult{
-            "control_service": hc.checkControlService(),
-            "tunnel_service":  hc.checkTunnelService(),
-        },
-    }
-}
-```
+1. 调用 `ListAgents` 获取 hubPort
+2. `listen :entryPort`
+3. accept 本地 SSH conn
+4. dial `hub:hubPort`
+5. io.Copy 双向转发
 
 ---
 
-## 11. 总结
+## 10. 测试设计（与新模型一致）
 
-本详细设计文档在概要设计基础上，进一步明确了：
+### 10.1 单元测试
 
-* 每个组件的类结构和方法职责
-* 数据结构和协议格式
-* 并发控制和资源管理策略
-* 错误处理和测试设计
-* 部署运维相关功能
+* `SessionIDTo16Bytes` 一致性测试
+* `HandshakeHeader` 编解码测试
+* Pending 状态机转换测试：
 
-该设计确保了代码实现的可行性和系统的高质量，为后续开发提供了完整的技术指导。
+  * OPEN_SENT -> BOUND
+  * OPEN_SENT -> TIMEOUT
+  * BOUND 后重复 dial-back 拒绝
+
+### 10.2 集成测试（最关键）
+
+* 启动 Hub（含固定 mapping）
+* 启动 Agent（连接 /agent）
+* 用本地 `netcat` 或最小 TCP 客户端模拟 SSH 连接到 hubPort
+* 验证：
+
+  * Hub 发 OPEN
+  * Agent dial-back /tunnel
+  * 握手第一帧正确
+  * 双向字节可转发
+  * 关闭任一侧能正确清理 pending
+
+---
+
+## 11. 部署与运维
+
+### 11.1 Hub 端口映射文件
+
+* 必须与 Hub 一起持久化（磁盘/卷）
+* Hub 重启后加载同一文件，保证 hubPort 不变
+
+### 11.2 Agent 重连失败退出
+
+* 由 systemd / supervisor 拉起
+* 日志必须包含：
+
+  * hub 地址
+  * agentName
+  * 错误原因（DNS/TLS/401/连接拒绝）
+
+---
+
+## 12. 总结
+
+本详细设计以“控制连接复用 + 会话独立隧道”为中心，完成了实现级落地：
+
+* `/agent` **Text JSON only**，最小控制消息
+* `/tunnel` **第一帧固定长度 binary 握手 header**
+* 明确 **重复 dial-back** 的拒绝策略
+* Hub **端口映射固定不变**，启动即验证可监听
+* Agent **重连失败即退出**
+* Pending 状态机与超时参数 **显式化**
+
+---
