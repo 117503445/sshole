@@ -5,18 +5,18 @@ import (
 
 	"github.com/117503445/goutils/glog"
 	"github.com/117503445/sshole/internal/buildinfo"
+	"github.com/117503445/sshole/pkg/entry"
 	"github.com/alecthomas/kong"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 var cli struct {
-	HubServer  string `env:"HUB_SERVER"`
-	Auth       string `env:"AUTH"`
-	AgentName  string `env:"AGENT_NAME"`
-	SshPort    int    `env:"SSH_PORT" default:"22222"`
-	PrivateKey string `env:"PRIVATE_KEY" description:"The path to the private key pam file"`
-	PublicKey  string `env:"PUBLIC_KEY" description:"The path to the public key pam file"`
+	HubServer string `env:"HUB_SERVER"`
+	Auth      string `env:"AUTH"`
+	AgentName string `env:"AGENT_NAME"`
+	EntryPort int    `env:"ENTRY_PORT" default:"22222"`
+	PublicKey string `env:"PUBLIC_KEY" default:"~/.ssh/id_ed25519.pub"`
 }
 
 func init() {
@@ -37,14 +37,19 @@ func main() {
 		Str("BuildDir", buildinfo.BuildDir).
 		Msg("build info")
 
-	log.Info().Interface("cli", cli).
-		Msg("Starting entry")
-
 	if cli.HubServer == "" {
 		log.Panic().Msg("HUB_SERVER is required")
 	}
 
+	cfg := entry.EntryConfig{
+		HubAddr:       cli.HubServer,
+		Token:         cli.Auth,
+		AgentName:     cli.AgentName,
+		EntryPort:     cli.EntryPort,
+		PublicKeyPath: cli.PublicKey,
+	}
+
 	ctx := context.Background()
 	ctx = log.Logger.WithContext(ctx)
-	cmdEntry(ctx)
+	runEntry(ctx, cfg)
 }

@@ -21,34 +21,27 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type ApiRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	Auth  string                 `protobuf:"bytes,1,opt,name=auth,proto3" json:"auth,omitempty"` // auth to hub
-	// Types that are valid to be assigned to Payload:
-	//
-	//	*ApiRequest_AgentCreate
-	//	*ApiRequest_AgentList
-	//	*ApiRequest_AgentGet
-	//	*ApiRequest_AgentAppendPublicKey
-	Payload       isApiRequest_Payload `protobuf_oneof:"payload"`
+// ListAgentsRequest 请求所有 agent 的固定映射信息。
+type ListAgentsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ApiRequest) Reset() {
-	*x = ApiRequest{}
+func (x *ListAgentsRequest) Reset() {
+	*x = ListAgentsRequest{}
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ApiRequest) String() string {
+func (x *ListAgentsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ApiRequest) ProtoMessage() {}
+func (*ListAgentsRequest) ProtoMessage() {}
 
-func (x *ApiRequest) ProtoReflect() protoreflect.Message {
+func (x *ListAgentsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -60,120 +53,35 @@ func (x *ApiRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ApiRequest.ProtoReflect.Descriptor instead.
-func (*ApiRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListAgentsRequest.ProtoReflect.Descriptor instead.
+func (*ListAgentsRequest) Descriptor() ([]byte, []int) {
 	return file_pkg_rpc_v1_sshole_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *ApiRequest) GetAuth() string {
-	if x != nil {
-		return x.Auth
-	}
-	return ""
-}
-
-func (x *ApiRequest) GetPayload() isApiRequest_Payload {
-	if x != nil {
-		return x.Payload
-	}
-	return nil
-}
-
-func (x *ApiRequest) GetAgentCreate() *AgentCreateRequest {
-	if x != nil {
-		if x, ok := x.Payload.(*ApiRequest_AgentCreate); ok {
-			return x.AgentCreate
-		}
-	}
-	return nil
-}
-
-func (x *ApiRequest) GetAgentList() *AgentListRequest {
-	if x != nil {
-		if x, ok := x.Payload.(*ApiRequest_AgentList); ok {
-			return x.AgentList
-		}
-	}
-	return nil
-}
-
-func (x *ApiRequest) GetAgentGet() *AgentGetRequest {
-	if x != nil {
-		if x, ok := x.Payload.(*ApiRequest_AgentGet); ok {
-			return x.AgentGet
-		}
-	}
-	return nil
-}
-
-func (x *ApiRequest) GetAgentAppendPublicKey() *AgentAppendPublicKeyRequest {
-	if x != nil {
-		if x, ok := x.Payload.(*ApiRequest_AgentAppendPublicKey); ok {
-			return x.AgentAppendPublicKey
-		}
-	}
-	return nil
-}
-
-type isApiRequest_Payload interface {
-	isApiRequest_Payload()
-}
-
-type ApiRequest_AgentCreate struct {
-	AgentCreate *AgentCreateRequest `protobuf:"bytes,2,opt,name=agent_create,json=agentCreate,proto3,oneof"`
-}
-
-type ApiRequest_AgentList struct {
-	AgentList *AgentListRequest `protobuf:"bytes,3,opt,name=agent_list,json=agentList,proto3,oneof"`
-}
-
-type ApiRequest_AgentGet struct {
-	AgentGet *AgentGetRequest `protobuf:"bytes,4,opt,name=agent_get,json=agentGet,proto3,oneof"`
-}
-
-type ApiRequest_AgentAppendPublicKey struct {
-	AgentAppendPublicKey *AgentAppendPublicKeyRequest `protobuf:"bytes,5,opt,name=agent_append_public_key,json=agentAppendPublicKey,proto3,oneof"`
-}
-
-func (*ApiRequest_AgentCreate) isApiRequest_Payload() {}
-
-func (*ApiRequest_AgentList) isApiRequest_Payload() {}
-
-func (*ApiRequest_AgentGet) isApiRequest_Payload() {}
-
-func (*ApiRequest_AgentAppendPublicKey) isApiRequest_Payload() {}
-
-type ApiResponse struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Code    int64                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
-	Message string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	// 根据 RPC 类型填充对应 payload
-	//
-	// Types that are valid to be assigned to Payload:
-	//
-	//	*ApiResponse_AgentCreate
-	//	*ApiResponse_AgentList
-	//	*ApiResponse_AgentGet
-	//	*ApiResponse_AgentAppendPublicKey
-	Payload       isApiResponse_Payload `protobuf_oneof:"payload"`
+// AgentInfo 描述一个 agent 的公开信息。
+type AgentInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentName     string                 `protobuf:"bytes,1,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
+	HubPort       int32                  `protobuf:"varint,2,opt,name=hub_port,json=hubPort,proto3" json:"hub_port,omitempty"`
+	Online        bool                   `protobuf:"varint,3,opt,name=online,proto3" json:"online,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ApiResponse) Reset() {
-	*x = ApiResponse{}
+func (x *AgentInfo) Reset() {
+	*x = AgentInfo{}
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ApiResponse) String() string {
+func (x *AgentInfo) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ApiResponse) ProtoMessage() {}
+func (*AgentInfo) ProtoMessage() {}
 
-func (x *ApiResponse) ProtoReflect() protoreflect.Message {
+func (x *AgentInfo) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -185,117 +93,54 @@ func (x *ApiResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ApiResponse.ProtoReflect.Descriptor instead.
-func (*ApiResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use AgentInfo.ProtoReflect.Descriptor instead.
+func (*AgentInfo) Descriptor() ([]byte, []int) {
 	return file_pkg_rpc_v1_sshole_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *ApiResponse) GetCode() int64 {
+func (x *AgentInfo) GetAgentName() string {
 	if x != nil {
-		return x.Code
-	}
-	return 0
-}
-
-func (x *ApiResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
+		return x.AgentName
 	}
 	return ""
 }
 
-func (x *ApiResponse) GetPayload() isApiResponse_Payload {
+func (x *AgentInfo) GetHubPort() int32 {
 	if x != nil {
-		return x.Payload
+		return x.HubPort
 	}
-	return nil
+	return 0
 }
 
-func (x *ApiResponse) GetAgentCreate() *AgentCreateResponse {
+func (x *AgentInfo) GetOnline() bool {
 	if x != nil {
-		if x, ok := x.Payload.(*ApiResponse_AgentCreate); ok {
-			return x.AgentCreate
-		}
+		return x.Online
 	}
-	return nil
+	return false
 }
 
-func (x *ApiResponse) GetAgentList() *AgentListResponse {
-	if x != nil {
-		if x, ok := x.Payload.(*ApiResponse_AgentList); ok {
-			return x.AgentList
-		}
-	}
-	return nil
-}
-
-func (x *ApiResponse) GetAgentGet() *AgentGetResponse {
-	if x != nil {
-		if x, ok := x.Payload.(*ApiResponse_AgentGet); ok {
-			return x.AgentGet
-		}
-	}
-	return nil
-}
-
-func (x *ApiResponse) GetAgentAppendPublicKey() *AgentAppendPublicKeyResponse {
-	if x != nil {
-		if x, ok := x.Payload.(*ApiResponse_AgentAppendPublicKey); ok {
-			return x.AgentAppendPublicKey
-		}
-	}
-	return nil
-}
-
-type isApiResponse_Payload interface {
-	isApiResponse_Payload()
-}
-
-type ApiResponse_AgentCreate struct {
-	AgentCreate *AgentCreateResponse `protobuf:"bytes,3,opt,name=agent_create,json=agentCreate,proto3,oneof"`
-}
-
-type ApiResponse_AgentList struct {
-	AgentList *AgentListResponse `protobuf:"bytes,4,opt,name=agent_list,json=agentList,proto3,oneof"`
-}
-
-type ApiResponse_AgentGet struct {
-	AgentGet *AgentGetResponse `protobuf:"bytes,5,opt,name=agent_get,json=agentGet,proto3,oneof"`
-}
-
-type ApiResponse_AgentAppendPublicKey struct {
-	AgentAppendPublicKey *AgentAppendPublicKeyResponse `protobuf:"bytes,6,opt,name=agent_append_public_key,json=agentAppendPublicKey,proto3,oneof"`
-}
-
-func (*ApiResponse_AgentCreate) isApiResponse_Payload() {}
-
-func (*ApiResponse_AgentList) isApiResponse_Payload() {}
-
-func (*ApiResponse_AgentGet) isApiResponse_Payload() {}
-
-func (*ApiResponse_AgentAppendPublicKey) isApiResponse_Payload() {}
-
-type AgentCreateRequest struct {
+// ListAgentsResponse 返回 agent 列表。
+type ListAgentsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // agent name
+	Agents        []*AgentInfo           `protobuf:"bytes,1,rep,name=agents,proto3" json:"agents,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AgentCreateRequest) Reset() {
-	*x = AgentCreateRequest{}
+func (x *ListAgentsResponse) Reset() {
+	*x = ListAgentsResponse{}
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AgentCreateRequest) String() string {
+func (x *ListAgentsResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AgentCreateRequest) ProtoMessage() {}
+func (*ListAgentsResponse) ProtoMessage() {}
 
-func (x *AgentCreateRequest) ProtoReflect() protoreflect.Message {
+func (x *ListAgentsResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -307,40 +152,41 @@ func (x *AgentCreateRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AgentCreateRequest.ProtoReflect.Descriptor instead.
-func (*AgentCreateRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListAgentsResponse.ProtoReflect.Descriptor instead.
+func (*ListAgentsResponse) Descriptor() ([]byte, []int) {
 	return file_pkg_rpc_v1_sshole_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *AgentCreateRequest) GetName() string {
+func (x *ListAgentsResponse) GetAgents() []*AgentInfo {
 	if x != nil {
-		return x.Name
+		return x.Agents
 	}
-	return ""
+	return nil
 }
 
-type AgentCreateResponse struct {
+// AppendKnownHostRequest 将公钥行写入指定 agent 的 known_hosts。
+type AppendKnownHostRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Agent         *Agent                 `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
-	PublicKey     string                 `protobuf:"bytes,2,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"` // hub public key
+	AgentName     string                 `protobuf:"bytes,1,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
+	PublicKey     string                 `protobuf:"bytes,2,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AgentCreateResponse) Reset() {
-	*x = AgentCreateResponse{}
+func (x *AppendKnownHostRequest) Reset() {
+	*x = AppendKnownHostRequest{}
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AgentCreateResponse) String() string {
+func (x *AppendKnownHostRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AgentCreateResponse) ProtoMessage() {}
+func (*AppendKnownHostRequest) ProtoMessage() {}
 
-func (x *AgentCreateResponse) ProtoReflect() protoreflect.Message {
+func (x *AppendKnownHostRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -352,45 +198,45 @@ func (x *AgentCreateResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AgentCreateResponse.ProtoReflect.Descriptor instead.
-func (*AgentCreateResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use AppendKnownHostRequest.ProtoReflect.Descriptor instead.
+func (*AppendKnownHostRequest) Descriptor() ([]byte, []int) {
 	return file_pkg_rpc_v1_sshole_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *AgentCreateResponse) GetAgent() *Agent {
+func (x *AppendKnownHostRequest) GetAgentName() string {
 	if x != nil {
-		return x.Agent
+		return x.AgentName
 	}
-	return nil
+	return ""
 }
 
-func (x *AgentCreateResponse) GetPublicKey() string {
+func (x *AppendKnownHostRequest) GetPublicKey() string {
 	if x != nil {
 		return x.PublicKey
 	}
 	return ""
 }
 
-type AgentListRequest struct {
+type AppendKnownHostResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AgentListRequest) Reset() {
-	*x = AgentListRequest{}
+func (x *AppendKnownHostResponse) Reset() {
+	*x = AppendKnownHostResponse{}
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AgentListRequest) String() string {
+func (x *AppendKnownHostResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AgentListRequest) ProtoMessage() {}
+func (*AppendKnownHostResponse) ProtoMessage() {}
 
-func (x *AgentListRequest) ProtoReflect() protoreflect.Message {
+func (x *AppendKnownHostResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -402,281 +248,9 @@ func (x *AgentListRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AgentListRequest.ProtoReflect.Descriptor instead.
-func (*AgentListRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use AppendKnownHostResponse.ProtoReflect.Descriptor instead.
+func (*AppendKnownHostResponse) Descriptor() ([]byte, []int) {
 	return file_pkg_rpc_v1_sshole_proto_rawDescGZIP(), []int{4}
-}
-
-type AgentListResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Agent         []*Agent               `protobuf:"bytes,1,rep,name=agent,proto3" json:"agent,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AgentListResponse) Reset() {
-	*x = AgentListResponse{}
-	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AgentListResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AgentListResponse) ProtoMessage() {}
-
-func (x *AgentListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AgentListResponse.ProtoReflect.Descriptor instead.
-func (*AgentListResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_rpc_v1_sshole_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *AgentListResponse) GetAgent() []*Agent {
-	if x != nil {
-		return x.Agent
-	}
-	return nil
-}
-
-type AgentGetRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // agent name
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AgentGetRequest) Reset() {
-	*x = AgentGetRequest{}
-	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AgentGetRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AgentGetRequest) ProtoMessage() {}
-
-func (x *AgentGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AgentGetRequest.ProtoReflect.Descriptor instead.
-func (*AgentGetRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_rpc_v1_sshole_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *AgentGetRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-type AgentGetResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Agent         *Agent                 `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AgentGetResponse) Reset() {
-	*x = AgentGetResponse{}
-	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AgentGetResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AgentGetResponse) ProtoMessage() {}
-
-func (x *AgentGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AgentGetResponse.ProtoReflect.Descriptor instead.
-func (*AgentGetResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_rpc_v1_sshole_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *AgentGetResponse) GetAgent() *Agent {
-	if x != nil {
-		return x.Agent
-	}
-	return nil
-}
-
-type AgentAppendPublicKeyRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                            // agent name
-	PublicKey     string                 `protobuf:"bytes,2,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"` // hub public key
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AgentAppendPublicKeyRequest) Reset() {
-	*x = AgentAppendPublicKeyRequest{}
-	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AgentAppendPublicKeyRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AgentAppendPublicKeyRequest) ProtoMessage() {}
-
-func (x *AgentAppendPublicKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AgentAppendPublicKeyRequest.ProtoReflect.Descriptor instead.
-func (*AgentAppendPublicKeyRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_rpc_v1_sshole_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *AgentAppendPublicKeyRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *AgentAppendPublicKeyRequest) GetPublicKey() string {
-	if x != nil {
-		return x.PublicKey
-	}
-	return ""
-}
-
-type AgentAppendPublicKeyResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AgentAppendPublicKeyResponse) Reset() {
-	*x = AgentAppendPublicKeyResponse{}
-	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AgentAppendPublicKeyResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AgentAppendPublicKeyResponse) ProtoMessage() {}
-
-func (x *AgentAppendPublicKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AgentAppendPublicKeyResponse.ProtoReflect.Descriptor instead.
-func (*AgentAppendPublicKeyResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_rpc_v1_sshole_proto_rawDescGZIP(), []int{9}
-}
-
-type Agent struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`  // agent name
-	Port          uint32                 `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"` // hub agent port
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Agent) Reset() {
-	*x = Agent{}
-	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Agent) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Agent) ProtoMessage() {}
-
-func (x *Agent) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_rpc_v1_sshole_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Agent.ProtoReflect.Descriptor instead.
-func (*Agent) Descriptor() ([]byte, []int) {
-	return file_pkg_rpc_v1_sshole_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *Agent) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *Agent) GetPort() uint32 {
-	if x != nil {
-		return x.Port
-	}
-	return 0
 }
 
 var File_pkg_rpc_v1_sshole_proto protoreflect.FileDescriptor
@@ -684,51 +258,25 @@ var File_pkg_rpc_v1_sshole_proto protoreflect.FileDescriptor
 const file_pkg_rpc_v1_sshole_proto_rawDesc = "" +
 	"\n" +
 	"\x17pkg/rpc/v1/sshole.proto\x12\n" +
-	"pkg.rpc.v1\"\xcd\x02\n" +
+	"pkg.rpc.v1\"\x13\n" +
+	"\x11ListAgentsRequest\"]\n" +
+	"\tAgentInfo\x12\x1d\n" +
 	"\n" +
-	"ApiRequest\x12\x12\n" +
-	"\x04auth\x18\x01 \x01(\tR\x04auth\x12C\n" +
-	"\fagent_create\x18\x02 \x01(\v2\x1e.pkg.rpc.v1.AgentCreateRequestH\x00R\vagentCreate\x12=\n" +
+	"agent_name\x18\x01 \x01(\tR\tagentName\x12\x19\n" +
+	"\bhub_port\x18\x02 \x01(\x05R\ahubPort\x12\x16\n" +
+	"\x06online\x18\x03 \x01(\bR\x06online\"C\n" +
+	"\x12ListAgentsResponse\x12-\n" +
+	"\x06agents\x18\x01 \x03(\v2\x15.pkg.rpc.v1.AgentInfoR\x06agents\"V\n" +
+	"\x16AppendKnownHostRequest\x12\x1d\n" +
 	"\n" +
-	"agent_list\x18\x03 \x01(\v2\x1c.pkg.rpc.v1.AgentListRequestH\x00R\tagentList\x12:\n" +
-	"\tagent_get\x18\x04 \x01(\v2\x1b.pkg.rpc.v1.AgentGetRequestH\x00R\bagentGet\x12`\n" +
-	"\x17agent_append_public_key\x18\x05 \x01(\v2'.pkg.rpc.v1.AgentAppendPublicKeyRequestH\x00R\x14agentAppendPublicKeyB\t\n" +
-	"\apayload\"\xec\x02\n" +
-	"\vApiResponse\x12\x12\n" +
-	"\x04code\x18\x01 \x01(\x03R\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\x12D\n" +
-	"\fagent_create\x18\x03 \x01(\v2\x1f.pkg.rpc.v1.AgentCreateResponseH\x00R\vagentCreate\x12>\n" +
+	"agent_name\x18\x01 \x01(\tR\tagentName\x12\x1d\n" +
 	"\n" +
-	"agent_list\x18\x04 \x01(\v2\x1d.pkg.rpc.v1.AgentListResponseH\x00R\tagentList\x12;\n" +
-	"\tagent_get\x18\x05 \x01(\v2\x1c.pkg.rpc.v1.AgentGetResponseH\x00R\bagentGet\x12a\n" +
-	"\x17agent_append_public_key\x18\x06 \x01(\v2(.pkg.rpc.v1.AgentAppendPublicKeyResponseH\x00R\x14agentAppendPublicKeyB\t\n" +
-	"\apayload\"(\n" +
-	"\x12AgentCreateRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"]\n" +
-	"\x13AgentCreateResponse\x12'\n" +
-	"\x05agent\x18\x01 \x01(\v2\x11.pkg.rpc.v1.AgentR\x05agent\x12\x1d\n" +
+	"public_key\x18\x02 \x01(\tR\tpublicKey\"\x19\n" +
+	"\x17AppendKnownHostResponse2\xb6\x01\n" +
+	"\vHoleService\x12K\n" +
 	"\n" +
-	"public_key\x18\x02 \x01(\tR\tpublicKey\"\x12\n" +
-	"\x10AgentListRequest\"<\n" +
-	"\x11AgentListResponse\x12'\n" +
-	"\x05agent\x18\x01 \x03(\v2\x11.pkg.rpc.v1.AgentR\x05agent\"%\n" +
-	"\x0fAgentGetRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\";\n" +
-	"\x10AgentGetResponse\x12'\n" +
-	"\x05agent\x18\x01 \x01(\v2\x11.pkg.rpc.v1.AgentR\x05agent\"P\n" +
-	"\x1bAgentAppendPublicKeyRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
-	"\n" +
-	"public_key\x18\x02 \x01(\tR\tpublicKey\"\x1e\n" +
-	"\x1cAgentAppendPublicKeyResponse\"/\n" +
-	"\x05Agent\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
-	"\x04port\x18\x02 \x01(\rR\x04port2\x99\x02\n" +
-	"\vHoleService\x12@\n" +
-	"\vAgentCreate\x12\x16.pkg.rpc.v1.ApiRequest\x1a\x17.pkg.rpc.v1.ApiResponse\"\x00\x12>\n" +
-	"\tAgentList\x12\x16.pkg.rpc.v1.ApiRequest\x1a\x17.pkg.rpc.v1.ApiResponse\"\x00\x12=\n" +
-	"\bAgentGet\x12\x16.pkg.rpc.v1.ApiRequest\x1a\x17.pkg.rpc.v1.ApiResponse\"\x00\x12I\n" +
-	"\x14AgentAppendPublicKey\x12\x16.pkg.rpc.v1.ApiRequest\x1a\x17.pkg.rpc.v1.ApiResponse\"\x00B.Z,github.com/117503445/sshole/pkg/rpc/v1;rpcv1b\x06proto3"
+	"ListAgents\x12\x1d.pkg.rpc.v1.ListAgentsRequest\x1a\x1e.pkg.rpc.v1.ListAgentsResponse\x12Z\n" +
+	"\x0fAppendKnownHost\x12\".pkg.rpc.v1.AppendKnownHostRequest\x1a#.pkg.rpc.v1.AppendKnownHostResponseB.Z,github.com/117503445/sshole/pkg/rpc/v1;rpcv1b\x06proto3"
 
 var (
 	file_pkg_rpc_v1_sshole_proto_rawDescOnce sync.Once
@@ -742,45 +290,25 @@ func file_pkg_rpc_v1_sshole_proto_rawDescGZIP() []byte {
 	return file_pkg_rpc_v1_sshole_proto_rawDescData
 }
 
-var file_pkg_rpc_v1_sshole_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_pkg_rpc_v1_sshole_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_pkg_rpc_v1_sshole_proto_goTypes = []any{
-	(*ApiRequest)(nil),                   // 0: pkg.rpc.v1.ApiRequest
-	(*ApiResponse)(nil),                  // 1: pkg.rpc.v1.ApiResponse
-	(*AgentCreateRequest)(nil),           // 2: pkg.rpc.v1.AgentCreateRequest
-	(*AgentCreateResponse)(nil),          // 3: pkg.rpc.v1.AgentCreateResponse
-	(*AgentListRequest)(nil),             // 4: pkg.rpc.v1.AgentListRequest
-	(*AgentListResponse)(nil),            // 5: pkg.rpc.v1.AgentListResponse
-	(*AgentGetRequest)(nil),              // 6: pkg.rpc.v1.AgentGetRequest
-	(*AgentGetResponse)(nil),             // 7: pkg.rpc.v1.AgentGetResponse
-	(*AgentAppendPublicKeyRequest)(nil),  // 8: pkg.rpc.v1.AgentAppendPublicKeyRequest
-	(*AgentAppendPublicKeyResponse)(nil), // 9: pkg.rpc.v1.AgentAppendPublicKeyResponse
-	(*Agent)(nil),                        // 10: pkg.rpc.v1.Agent
+	(*ListAgentsRequest)(nil),       // 0: pkg.rpc.v1.ListAgentsRequest
+	(*AgentInfo)(nil),               // 1: pkg.rpc.v1.AgentInfo
+	(*ListAgentsResponse)(nil),      // 2: pkg.rpc.v1.ListAgentsResponse
+	(*AppendKnownHostRequest)(nil),  // 3: pkg.rpc.v1.AppendKnownHostRequest
+	(*AppendKnownHostResponse)(nil), // 4: pkg.rpc.v1.AppendKnownHostResponse
 }
 var file_pkg_rpc_v1_sshole_proto_depIdxs = []int32{
-	2,  // 0: pkg.rpc.v1.ApiRequest.agent_create:type_name -> pkg.rpc.v1.AgentCreateRequest
-	4,  // 1: pkg.rpc.v1.ApiRequest.agent_list:type_name -> pkg.rpc.v1.AgentListRequest
-	6,  // 2: pkg.rpc.v1.ApiRequest.agent_get:type_name -> pkg.rpc.v1.AgentGetRequest
-	8,  // 3: pkg.rpc.v1.ApiRequest.agent_append_public_key:type_name -> pkg.rpc.v1.AgentAppendPublicKeyRequest
-	3,  // 4: pkg.rpc.v1.ApiResponse.agent_create:type_name -> pkg.rpc.v1.AgentCreateResponse
-	5,  // 5: pkg.rpc.v1.ApiResponse.agent_list:type_name -> pkg.rpc.v1.AgentListResponse
-	7,  // 6: pkg.rpc.v1.ApiResponse.agent_get:type_name -> pkg.rpc.v1.AgentGetResponse
-	9,  // 7: pkg.rpc.v1.ApiResponse.agent_append_public_key:type_name -> pkg.rpc.v1.AgentAppendPublicKeyResponse
-	10, // 8: pkg.rpc.v1.AgentCreateResponse.agent:type_name -> pkg.rpc.v1.Agent
-	10, // 9: pkg.rpc.v1.AgentListResponse.agent:type_name -> pkg.rpc.v1.Agent
-	10, // 10: pkg.rpc.v1.AgentGetResponse.agent:type_name -> pkg.rpc.v1.Agent
-	0,  // 11: pkg.rpc.v1.HoleService.AgentCreate:input_type -> pkg.rpc.v1.ApiRequest
-	0,  // 12: pkg.rpc.v1.HoleService.AgentList:input_type -> pkg.rpc.v1.ApiRequest
-	0,  // 13: pkg.rpc.v1.HoleService.AgentGet:input_type -> pkg.rpc.v1.ApiRequest
-	0,  // 14: pkg.rpc.v1.HoleService.AgentAppendPublicKey:input_type -> pkg.rpc.v1.ApiRequest
-	1,  // 15: pkg.rpc.v1.HoleService.AgentCreate:output_type -> pkg.rpc.v1.ApiResponse
-	1,  // 16: pkg.rpc.v1.HoleService.AgentList:output_type -> pkg.rpc.v1.ApiResponse
-	1,  // 17: pkg.rpc.v1.HoleService.AgentGet:output_type -> pkg.rpc.v1.ApiResponse
-	1,  // 18: pkg.rpc.v1.HoleService.AgentAppendPublicKey:output_type -> pkg.rpc.v1.ApiResponse
-	15, // [15:19] is the sub-list for method output_type
-	11, // [11:15] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	1, // 0: pkg.rpc.v1.ListAgentsResponse.agents:type_name -> pkg.rpc.v1.AgentInfo
+	0, // 1: pkg.rpc.v1.HoleService.ListAgents:input_type -> pkg.rpc.v1.ListAgentsRequest
+	3, // 2: pkg.rpc.v1.HoleService.AppendKnownHost:input_type -> pkg.rpc.v1.AppendKnownHostRequest
+	2, // 3: pkg.rpc.v1.HoleService.ListAgents:output_type -> pkg.rpc.v1.ListAgentsResponse
+	4, // 4: pkg.rpc.v1.HoleService.AppendKnownHost:output_type -> pkg.rpc.v1.AppendKnownHostResponse
+	3, // [3:5] is the sub-list for method output_type
+	1, // [1:3] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_pkg_rpc_v1_sshole_proto_init() }
@@ -788,25 +316,13 @@ func file_pkg_rpc_v1_sshole_proto_init() {
 	if File_pkg_rpc_v1_sshole_proto != nil {
 		return
 	}
-	file_pkg_rpc_v1_sshole_proto_msgTypes[0].OneofWrappers = []any{
-		(*ApiRequest_AgentCreate)(nil),
-		(*ApiRequest_AgentList)(nil),
-		(*ApiRequest_AgentGet)(nil),
-		(*ApiRequest_AgentAppendPublicKey)(nil),
-	}
-	file_pkg_rpc_v1_sshole_proto_msgTypes[1].OneofWrappers = []any{
-		(*ApiResponse_AgentCreate)(nil),
-		(*ApiResponse_AgentList)(nil),
-		(*ApiResponse_AgentGet)(nil),
-		(*ApiResponse_AgentAppendPublicKey)(nil),
-	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_rpc_v1_sshole_proto_rawDesc), len(file_pkg_rpc_v1_sshole_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

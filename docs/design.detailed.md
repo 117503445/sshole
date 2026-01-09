@@ -67,7 +67,8 @@ const SSHOLE_VERSION = 1
 // pkg/proto/control.go
 type ControlMessage struct {
     Type      string `json:"type"`
-    SessionID string `json:"session_id"`
+    SessionID string `json:"session_id,omitempty"`
+    KnownHost string `json:"known_host,omitempty"`
 }
 ```
 
@@ -81,6 +82,14 @@ type ControlMessage struct {
 
 * Hub → Agent 仅发送 `OPEN`
 * Agent 不需要 ACK（保持最小；实现中可打印日志即可）
+
+### 3.2.2 ADD_KNOWN_HOST（Hub → Agent）
+
+```json
+{"type":"ADD_KNOWN_HOST","known_host":"ssh-ed25519 AAAA... user@entry"}
+```
+
+* Agent 收到后将公钥行追加到 `~/.ssh/known_hosts`（若已存在则忽略）
 
 ---
 
@@ -377,6 +386,25 @@ Online 判断：`h.agents[name].Control != nil`
 
 ---
 
+## 4.9 AppendKnownHost RPC（Hub）
+
+```protobuf
+rpc AppendKnownHost(AppendKnownHostRequest) returns (AppendKnownHostResponse);
+
+message AppendKnownHostRequest {
+  string agent_name = 1;
+  string public_key = 2; // entry 侧用户公钥行
+}
+```
+
+行为：
+
+* Hub 校验 agent 在线
+* 通过 `/agent` 控制通道发送 `ADD_KNOWN_HOST`（携带 `known_host`）
+* Agent 追加到 `~/.ssh/known_hosts`（幂等）
+
+---
+
 ## 5. Agent 组件详细设计
 
 ## 5.1 Agent 主结构体
@@ -408,6 +436,7 @@ func (a *Agent) Start(ctx context.Context) error
 
 ### 5.2.1 Start 行为
 
+0. 启动内置 sshd（见 5.7）：`localPort` 未被占用则解压内置 OpenSSH，写入固定 HostKey、`~/.sshole/authorized_keys`，监听 `127.0.0.1:<localPort>`
 1. 建立 `/agent` WS 长连接
 2. 进入 read loop，持续读取 Text JSON
 3. 收到 `OPEN(sessionId)`：
@@ -505,6 +534,21 @@ func (a *Agent) runWithReconnect(ctx context.Context) error
 
   * 打印 error（含 hub 地址、agentName）
   * **os.Exit(1)** 或返回致命错误由 main 退出
+
+---
+
+## 5.7 内置 SSHD（Agent 本地）
+
+* 使用内置压缩包 `openssh-V_9_9_P2.tar.gz`（内嵌资源）解压至 `/tmp/sshole_agent/opt/openssh`
+* 生成配置：
+
+  * `Port=<localPort>`
+  * `ListenAddress=127.0.0.1`
+  * `AuthorizedKeysFile=~/.sshole/authorized_keys`（不存在则创建空文件，权限 600）
+  * `HostKey` 使用固定内置 ed25519 key（公钥固定，供 entry 写入 known_hosts）
+* 若 `localPort` 已在监听，则跳过启动（视为已有 SSHD）
+* 启动命令：`sshd -D -e -f /tmp/sshole_agent/opt/openssh/etc/sshd_config`
+* Agent 退出或 ctx 取消时尝试终止子进程
 
 ---
 
@@ -647,10 +691,11 @@ type EntryConfig struct {
 流程：
 
 1. 调用 `ListAgents` 获取 hubPort
-2. `listen :entryPort`
-3. accept 本地 SSH conn
-4. dial `hub:hubPort`
-5. io.Copy 双向转发
+2. 启动前将 Agent 固定 HostKey 追加到本机 `known_hosts`（目标 `[localhost]:entryPort`），避免首连提示
+3. `listen :entryPort`
+4. accept 本地 SSH conn
+5. dial `hub:hubPort`
+6. io.Copy 双向转发
 
 ---
 

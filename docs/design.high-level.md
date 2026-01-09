@@ -74,6 +74,7 @@ sshole 是一个基于 **内网 Agent 主动反向连接（dial-back）** 的 SS
 * 接收 Agent 建立的 `/agent` 控制连接
 * 为每个 Agent 分配并维护一个固定的 `hubPort`
 * 在 `hubPort` 上监听 SSH TCP 连接
+* 提供 RPC：`ListAgents`、`AppendKnownHost`（将用户公钥转发到 Agent known_hosts）
 * 当收到 SSH 会话时：
 
   * 创建会话状态（Pending）
@@ -87,6 +88,7 @@ sshole 是一个基于 **内网 Agent 主动反向连接（dial-back）** 的 SS
 #### Agent（内网）
 
 * 启动即建立到 Hub 的 `/agent` 长连接
+* 启动阶段自动拉起内置 OpenSSH（绑定 `localPort`，仅监听 127.0.0.1），使用固定 HostKey 和 `~/.sshole/authorized_keys`
 * 监听 Hub 发来的 OPEN 请求
 * 对每个 SSH 会话：
 
@@ -101,7 +103,9 @@ sshole 是一个基于 **内网 Agent 主动反向连接（dial-back）** 的 SS
 #### Entry（可选）
 
 * 查询 Hub 的 Agent 映射信息
+* 读取本机公钥，调用 Hub `AppendKnownHost` 将其写入 Agent 的 known_hosts
 * 在本地监听端口
+* 启动时将 Agent 的固定 HostKey 追加到本机 `known_hosts`（目标 `[localhost]:entryPort`）
 * 将本地 SSH TCP 连接转发到 Hub 的 `hubPort`
 * 不参与 WebSocket 逻辑
 
@@ -327,11 +331,17 @@ ssh user@hub -p <hubPort>
 
 ```protobuf
 rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+rpc AppendKnownHost(AppendKnownHostRequest) returns (AppendKnownHostResponse);
 
 message AgentInfo {
   string agent_name = 1;
   int32 hub_port = 2;
   bool online = 3;
+}
+
+message AppendKnownHostRequest {
+  string agent_name = 1;
+  string public_key = 2;
 }
 ```
 

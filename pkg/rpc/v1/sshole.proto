@@ -4,78 +4,33 @@ package pkg.rpc.v1;
 
 option go_package = "github.com/117503445/sshole/pkg/rpc/v1;rpcv1";
 
-message ApiRequest {
-  string auth = 1; // auth to hub
-  oneof payload {
-    AgentCreateRequest agent_create = 2;
-    AgentListRequest agent_list = 3;
-    AgentGetRequest agent_get = 4;
-    AgentAppendPublicKeyRequest agent_append_public_key = 5;
-  }
+// ListAgentsRequest 请求所有 agent 的固定映射信息。
+message ListAgentsRequest {}
+
+// AgentInfo 描述一个 agent 的公开信息。
+message AgentInfo {
+  string agent_name = 1;
+  int32 hub_port = 2;
+  bool online = 3;
 }
 
-message ApiResponse {
-    int64 code = 1;
-    string message = 2;
-
-    // 根据 RPC 类型填充对应 payload
-    oneof payload {
-        AgentCreateResponse agent_create = 3;
-        AgentListResponse agent_list = 4;
-        AgentGetResponse agent_get = 5;
-        AgentAppendPublicKeyResponse agent_append_public_key = 6;
-    }
+// ListAgentsResponse 返回 agent 列表。
+message ListAgentsResponse {
+  repeated AgentInfo agents = 1;
 }
 
-message AgentCreateRequest {
-  string name = 1; // agent name
+// AppendKnownHostRequest 将公钥行写入指定 agent 的 known_hosts。
+message AppendKnownHostRequest {
+  string agent_name = 1;
+  string public_key = 2;
 }
 
-message AgentCreateResponse {
-  Agent agent = 1;
-  string public_key = 2; // hub public key
-}
-
-message AgentListRequest {
-}
-
-message AgentListResponse {
-  repeated Agent agent = 1;
-}
-
-message AgentGetRequest {
-  string name = 1; // agent name
-}
-
-message AgentGetResponse {
-  Agent agent = 1;
-}
-
-message AgentAppendPublicKeyRequest {
-  string name = 1; // agent name
-  string public_key = 2; // hub public key
-}
-
-message AgentAppendPublicKeyResponse {
-
-}
-
-message Agent {
-  string name = 1; // agent name
-  uint32 port = 2; // hub agent port
-}
+message AppendKnownHostResponse {}
 
 service HoleService {
-  // AgentCreate 注册 agent 到 hub
-  // hub 分配一个 port 给 agent，并返回 public key
-  rpc AgentCreate(ApiRequest) returns (ApiResponse) {}
+  // ListAgents 返回所有已配置 agent 的映射与在线状态。
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
 
-  // AgentList 获取 agent 列表
-  rpc AgentList(ApiRequest) returns (ApiResponse) {}
-
-  // AgentGet 获取 agent 信息
-  rpc AgentGet(ApiRequest) returns (ApiResponse) {}
-
-  // AgentAppendPublicKey 追加 public key 到 agent
-  rpc AgentAppendPublicKey(ApiRequest) returns (ApiResponse) {}
+  // AppendKnownHost 让 Hub 通知 Agent 将提供的公钥行追加到 known_hosts。
+  rpc AppendKnownHost(AppendKnownHostRequest) returns (AppendKnownHostResponse);
 }

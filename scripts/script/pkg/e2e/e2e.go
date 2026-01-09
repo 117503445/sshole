@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"time"
@@ -8,8 +9,52 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	e2eMappingPath = "/workspace/data/port_mapping_e2e.json"
+	e2eKeyPath     = "/workspace/data/sshole_e2e_id_ed25519"
+	e2ePubKeyPath  = "/workspace/data/sshole_e2e_id_ed25519.pub"
+)
+
+type portMapping struct {
+	Agents map[string]int `json:"agents"`
+}
+
+func ensureE2EMapping() string {
+	mapping := portMapping{
+		Agents: map[string]int{
+			"test-agent":      10022,
+			"test-agent-auth": 10023,
+		},
+	}
+	data, err := json.MarshalIndent(mapping, "", "  ")
+	if err != nil {
+		log.Panic().Err(err).Msg("Failed to marshal E2E port mapping")
+	}
+	if err := os.WriteFile(e2eMappingPath, data, 0o644); err != nil {
+		log.Panic().Err(err).Msg("Failed to write E2E port mapping")
+	}
+	return e2eMappingPath
+}
+
+func ensureE2EKeypair() string {
+	if _, err := os.Stat(e2ePubKeyPath); err == nil {
+		return e2ePubKeyPath
+	}
+
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-f", e2eKeyPath, "-N", "", "-C", "sshole-e2e")
+	if err := cmd.Run(); err != nil {
+		log.Warn().Err(err).Msg("ssh-keygen failed, using fallback public key")
+		fallback := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMa+aWUpQZQR5CQQe/Z9ydCqs1+cLPNYMmowGiPrvRGS sshole-e2e"
+		if writeErr := os.WriteFile(e2ePubKeyPath, []byte(fallback+"\n"), 0o644); writeErr != nil {
+			log.Panic().Err(writeErr).Msg("Failed to write fallback public key")
+		}
+		return e2ePubKeyPath
+	}
+	return e2ePubKeyPath
+}
+
 // runBasicTest runs the basic connectivity test between hub, agent, and entry containers
-func runBasicTest() {
+func runBasicTest(mappingFile, publicKeyPath string) {
 	log.Info().Msg("Starting basic E2E test...")
 
 	// Check if Docker images exist
@@ -55,7 +100,7 @@ func runBasicTest() {
 
 	// Start hub container
 	log.Info().Msg("Starting hub container...")
-	hubCmd := exec.Command("docker", "run", "--name", "hub", "--rm", "--network", "sshole-test", "117503445/sshole-hub")
+	hubCmd := exec.Command("docker", "run", "--name", "hub", "--rm", "--network", "sshole-test", "-v", "/workspace/data:/workspace/data", "-e", "MAPPING_FILE="+mappingFile, "117503445/sshole-hub")
 	hubCmd.Stdout = os.Stdout
 	hubCmd.Stderr = os.Stderr
 
@@ -69,7 +114,7 @@ func runBasicTest() {
 
 	// Start agent container
 	log.Info().Msg("Starting agent container...")
-	agentCmd := exec.Command("docker", "run", "--name", "agent", "--rm", "--network", "sshole-test", "117503445/sshole-agent", "--hub-server", "http://hub:9000")
+	agentCmd := exec.Command("docker", "run", "-e", "NAME=test-agent", "--name", "agent", "--rm", "--network", "sshole-test", "-v", "/workspace/data:/workspace/data", "117503445/sshole-agent", "--hub-server", "http://hub:9000")
 	agentCmd.Stdout = os.Stdout
 	agentCmd.Stderr = os.Stderr
 
@@ -83,7 +128,7 @@ func runBasicTest() {
 
 	// Start entry container
 	log.Info().Msg("Starting entry container...")
-	entryCmd := exec.Command("docker", "run", "--name", "entry", "--rm", "--network", "sshole-test", "117503445/sshole-entry", "--hub-server", "http://hub:9000")
+	entryCmd := exec.Command("docker", "run", "--name", "entry", "--rm", "--network", "sshole-test", "-v", "/workspace/data:/workspace/data", "-e", "AGENT_NAME=test-agent", "-e", "PUBLIC_KEY="+publicKeyPath, "117503445/sshole-entry", "--hub-server", "http://hub:9000")
 	entryCmd.Stdout = os.Stdout
 	entryCmd.Stderr = os.Stderr
 
@@ -123,7 +168,7 @@ func runBasicTest() {
 }
 
 // runAuthTest runs the authentication test with auth set to 123456
-func runAuthTest() {
+func runAuthTest(mappingFile, publicKeyPath string) {
 	log.Info().Msg("Starting auth E2E test...")
 
 	// Check if Docker images exist
@@ -169,7 +214,7 @@ func runAuthTest() {
 
 	// Start hub container with auth
 	log.Info().Msg("Starting hub container with auth...")
-	hubCmd := exec.Command("docker", "run", "--name", "hub-auth", "--rm", "--network", "sshole-auth-test", "-e", "AUTH=123456", "117503445/sshole-hub")
+	hubCmd := exec.Command("docker", "run", "--name", "hub-auth", "--rm", "--network", "sshole-auth-test", "-v", "/workspace/data:/workspace/data", "-e", "AUTH=123456", "-e", "MAPPING_FILE="+mappingFile, "117503445/sshole-hub")
 	hubCmd.Stdout = os.Stdout
 	hubCmd.Stderr = os.Stderr
 
@@ -183,7 +228,7 @@ func runAuthTest() {
 
 	// Start agent container with auth
 	log.Info().Msg("Starting agent container with auth...")
-	agentCmd := exec.Command("docker", "run", "--name", "agent-auth", "--rm", "--network", "sshole-auth-test", "-e", "AUTH=123456", "117503445/sshole-agent", "--hub-server", "http://hub-auth:9000")
+	agentCmd := exec.Command("docker", "run", "-e", "AUTH=123456", "-e", "NAME=test-agent-auth", "--name", "agent-auth", "--rm", "--network", "sshole-auth-test", "-v", "/workspace/data:/workspace/data", "117503445/sshole-agent", "--hub-server", "http://hub-auth:9000")
 	agentCmd.Stdout = os.Stdout
 	agentCmd.Stderr = os.Stderr
 
@@ -197,7 +242,7 @@ func runAuthTest() {
 
 	// Start entry container with auth
 	log.Info().Msg("Starting entry container with auth...")
-	entryCmd := exec.Command("docker", "run", "--name", "entry-auth", "--rm", "--network", "sshole-auth-test", "-e", "AUTH=123456", "117503445/sshole-entry", "--hub-server", "http://hub-auth:9000")
+	entryCmd := exec.Command("docker", "run", "--name", "entry-auth", "--rm", "--network", "sshole-auth-test", "-v", "/workspace/data:/workspace/data", "-e", "AUTH=123456", "-e", "AGENT_NAME=test-agent-auth", "-e", "PUBLIC_KEY="+publicKeyPath, "117503445/sshole-entry", "--hub-server", "http://hub-auth:9000")
 	entryCmd.Stdout = os.Stdout
 	entryCmd.Stderr = os.Stderr
 
@@ -238,17 +283,19 @@ func runAuthTest() {
 
 func E2e(testCase string) {
 	log.Info().Str("test_case", testCase).Msg("Starting E2E test...")
+	mappingFile := ensureE2EMapping()
+	publicKeyPath := ensureE2EKeypair()
 
 	switch testCase {
 	case "":
 		// Run all test cases when no case is specified
 		log.Info().Msg("Running all test cases...")
-		runBasicTest()
-		runAuthTest()
+		runBasicTest(mappingFile, publicKeyPath)
+		runAuthTest(mappingFile, publicKeyPath)
 	case "basic":
-		runBasicTest()
+		runBasicTest(mappingFile, publicKeyPath)
 	case "auth":
-		runAuthTest()
+		runAuthTest(mappingFile, publicKeyPath)
 	default:
 		log.Panic().Str("test_case", testCase).Msg("Unknown test case. Available cases: basic, auth")
 	}

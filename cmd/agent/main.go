@@ -3,20 +3,23 @@ package main
 import (
 	"context"
 	"os"
-
-	"github.com/117503445/sshole/internal/buildinfo"
+	"time"
 
 	"github.com/117503445/goutils/glog"
+	"github.com/117503445/sshole/internal/buildinfo"
+	"github.com/117503445/sshole/pkg/agent"
+	"github.com/117503445/sshole/pkg/common"
 	"github.com/alecthomas/kong"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 var cli struct {
-	HubServer string `env:"HUB_SERVER"`
-	Auth      string `env:"AUTH"`
-	Name      string `env:"NAME"`
-	SshdPort  int    `env:"SSHD_PORT" default:"22222"`
+	HubServer  string        `env:"HUB_SERVER"`
+	Auth       string        `env:"AUTH"`
+	Name       string        `env:"NAME"`
+	LocalPort  int           `env:"LOCAL_PORT" default:"22222"`
+	TunnelDial time.Duration `env:"TUNNEL_DIAL_TIMEOUT" default:"5s"`
 }
 
 func init() {
@@ -37,14 +40,10 @@ func main() {
 		Str("BuildDir", buildinfo.BuildDir).
 		Msg("build info")
 
-	log.Info().Interface("cli", cli).
-		Msg("Starting agent")
-
 	if cli.HubServer == "" {
 		log.Panic().Msg("HUB_SERVER is required")
 	}
 	if cli.Name == "" {
-		// set hostname as name
 		name, err := os.Hostname()
 		if err != nil {
 			log.Panic().Err(err).Msg("failed to get hostname")
@@ -53,7 +52,16 @@ func main() {
 		log.Info().Str("name", cli.Name).Msg("Using hostname as name")
 	}
 
+	cfg := agent.AgentConfig{
+		HubURL:    cli.HubServer,
+		Token:     cli.Auth,
+		AgentName: cli.Name,
+		LocalPort: cli.LocalPort,
+	}
+	cfg.Timeouts = common.DefaultTimeouts()
+	cfg.Timeouts.TunnelDialTimeout = cli.TunnelDial
+
 	ctx := context.Background()
 	ctx = log.Logger.WithContext(ctx)
-	cmdAgent(ctx)
+	runAgent(ctx, cfg)
 }
