@@ -1,0 +1,7 @@
+version: 3
+
+tasks:
+  e2e:
+    deps: [":base:clear", ":build:docker"]
+    cmds:
+      - cd ./scripts/script && go run . e-2-e

@@ -1,7 +1,7 @@
 version: 3
 
 tasks:
-  build:
+  bin:
     deps: [":base:clear", ":gen:gen"]
     sources:
       - ./cmd/**
@@ -19,8 +19,8 @@ tasks:
     cmds:
       - cd ./scripts/script && go run . build
 
-  build-docker:
-    deps: [":base:clear", ":build:build"]
+  docker:
+    deps: [":base:clear", ":build:bin"]
     sources:
       - ./scripts/docker/agent.Dockerfile
       - ./data/agent/sshole_agent

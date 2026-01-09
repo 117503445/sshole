@@ -45,3 +45,8 @@ gotest
 
 data
 .task
+/hub
+/entry
+/agent
+.cache
+/scripts/script/script

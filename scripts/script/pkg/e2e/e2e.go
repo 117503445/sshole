@@ -1,254 +1,106 @@
 package e2e
 
 import (
+	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
-	"time"
 
 	"github.com/rs/zerolog/log"
 )
 
-// runBasicTest runs the basic connectivity test between hub, agent, and entry containers
-func runBasicTest() {
-	log.Info().Msg("Starting basic E2E test...")
+const (
+	e2eMappingPath = "/workspace/data/e2e/port_mapping_e2e.json"
+	e2eKeyPath     = "/workspace/data/e2e/sshole_e2e_id_ed25519"
+	e2ePubKeyPath  = "/workspace/data/e2e/sshole_e2e_id_ed25519.pub"
+)
 
-	// Check if Docker images exist
-	log.Info().Msg("Checking if Docker images exist...")
-	checkHubImageCmd := exec.Command("docker", "images", "117503445/sshole-hub", "--format", "{{.Repository}}:{{.Tag}}")
-	hubOutput, err := checkHubImageCmd.Output()
-	if err != nil {
-		log.Panic().Err(err).Msg("Failed to check hub Docker image")
-	}
-	if len(hubOutput) == 0 {
-		log.Panic().Msg("Docker image '117503445/sshole-hub' not found. Please build or pull the image first.")
-	}
-	log.Info().Str("hub_image", string(hubOutput[:len(hubOutput)-1])).Msg("Hub Docker image found")
-
-	checkAgentImageCmd := exec.Command("docker", "images", "117503445/sshole-agent", "--format", "{{.Repository}}:{{.Tag}}")
-	agentOutput, err := checkAgentImageCmd.Output()
-	if err != nil {
-		log.Panic().Err(err).Msg("Failed to check agent Docker image")
-	}
-	if len(agentOutput) == 0 {
-		log.Panic().Msg("Docker image '117503445/sshole-agent' not found. Please build or pull the image first.")
-	}
-	log.Info().Str("agent_image", string(agentOutput[:len(agentOutput)-1])).Msg("Agent Docker image found")
-
-	checkEntryImageCmd := exec.Command("docker", "images", "117503445/sshole-entry", "--format", "{{.Repository}}:{{.Tag}}")
-	entryOutput, err := checkEntryImageCmd.Output()
-	if err != nil {
-		log.Panic().Err(err).Msg("Failed to check entry Docker image")
-	}
-	if len(entryOutput) == 0 {
-		log.Panic().Msg("Docker image '117503445/sshole-entry' not found. Please build or pull the image first.")
-	}
-	log.Info().Str("entry_image", string(entryOutput[:len(entryOutput)-1])).Msg("Entry Docker image found")
-
-	// Create a Docker network for the containers to communicate
-	log.Info().Msg("Creating Docker network...")
-	networkCmd := exec.Command("docker", "network", "create", "sshole-test")
-	networkCmd.Stdout = os.Stdout
-	networkCmd.Stderr = os.Stderr
-	if err := networkCmd.Run(); err != nil {
-		log.Warn().Err(err).Msg("Failed to create network (might already exist)")
-	}
-
-	// Start hub container
-	log.Info().Msg("Starting hub container...")
-	hubCmd := exec.Command("docker", "run", "--name", "hub", "--rm", "--network", "sshole-test", "117503445/sshole-hub")
-	hubCmd.Stdout = os.Stdout
-	hubCmd.Stderr = os.Stderr
-
-	if err := hubCmd.Start(); err != nil {
-		log.Panic().Err(err).Msg("Failed to start hub container")
-	}
-
-	// Wait 1 second
-	log.Info().Msg("Waiting 1 second before starting agent...")
-	time.Sleep(1 * time.Second)
-
-	// Start agent container
-	log.Info().Msg("Starting agent container...")
-	agentCmd := exec.Command("docker", "run", "--name", "agent", "--rm", "--network", "sshole-test", "117503445/sshole-agent", "--hub-server", "http://hub:9000")
-	agentCmd.Stdout = os.Stdout
-	agentCmd.Stderr = os.Stderr
-
-	if err := agentCmd.Start(); err != nil {
-		log.Panic().Err(err).Msg("Failed to start agent container")
-	}
-
-	// Wait 3 seconds before starting entry
-	log.Info().Msg("Waiting 3 seconds before starting entry...")
-	time.Sleep(3 * time.Second)
-
-	// Start entry container
-	log.Info().Msg("Starting entry container...")
-	entryCmd := exec.Command("docker", "run", "--name", "entry", "--rm", "--network", "sshole-test", "117503445/sshole-entry", "--hub-server", "http://hub:9000")
-	entryCmd.Stdout = os.Stdout
-	entryCmd.Stderr = os.Stderr
-
-	if err := entryCmd.Start(); err != nil {
-		log.Panic().Err(err).Msg("Failed to start entry container")
-	}
-
-	// Wait 10 seconds before stopping test
-	log.Info().Msg("Waiting 10 seconds before stopping test...")
-	time.Sleep(10 * time.Second)
-
-	// Stop containers (they will be automatically removed due to --rm flag)
-	log.Info().Msg("Stopping containers...")
-	stopHubCmd := exec.Command("docker", "stop", "hub")
-	if err := stopHubCmd.Run(); err != nil {
-		log.Warn().Err(err).Msg("Failed to stop hub container")
-	}
-
-	stopAgentCmd := exec.Command("docker", "stop", "agent")
-	if err := stopAgentCmd.Run(); err != nil {
-		log.Warn().Err(err).Msg("Failed to stop agent container")
-	}
-
-	stopEntryCmd := exec.Command("docker", "stop", "entry")
-	if err := stopEntryCmd.Run(); err != nil {
-		log.Warn().Err(err).Msg("Failed to stop entry container")
-	}
-
-	// Clean up network
-	log.Info().Msg("Cleaning up network...")
-	cleanupCmd := exec.Command("docker", "network", "rm", "sshole-test")
-	if err := cleanupCmd.Run(); err != nil {
-		log.Warn().Err(err).Msg("Failed to remove network")
-	}
-
-	log.Info().Msg("Basic E2E test completed.")
+type portMapping struct {
+	Agents map[string]int `json:"agents"`
 }
 
-// runAuthTest runs the authentication test with auth set to 123456
-func runAuthTest() {
-	log.Info().Msg("Starting auth E2E test...")
+type caseParams struct {
+	MappingFile   string
+	PublicKeyPath string
+}
 
-	// Check if Docker images exist
-	log.Info().Msg("Checking if Docker images exist...")
-	checkHubImageCmd := exec.Command("docker", "images", "117503445/sshole-hub", "--format", "{{.Repository}}:{{.Tag}}")
-	hubOutput, err := checkHubImageCmd.Output()
+func ensureE2EMapping() string {
+	// Ensure the directory exists
+	if err := os.MkdirAll("/workspace/data/e2e", 0o755); err != nil {
+		log.Panic().Err(err).Msg("Failed to create E2E directory")
+	}
+
+	mapping := portMapping{
+		Agents: map[string]int{
+			"test-agent":      10022,
+			"test-agent-auth": 10023,
+		},
+	}
+	data, err := json.MarshalIndent(mapping, "", "  ")
 	if err != nil {
-		log.Panic().Err(err).Msg("Failed to check hub Docker image")
+		log.Panic().Err(err).Msg("Failed to marshal E2E port mapping")
 	}
-	if len(hubOutput) == 0 {
-		log.Panic().Msg("Docker image '117503445/sshole-hub' not found. Please build or pull the image first.")
+	if err := os.WriteFile(e2eMappingPath, data, 0o644); err != nil {
+		log.Panic().Err(err).Msg("Failed to write E2E port mapping")
 	}
-	log.Info().Str("hub_image", string(hubOutput[:len(hubOutput)-1])).Msg("Hub Docker image found")
+	return e2eMappingPath
+}
 
-	checkAgentImageCmd := exec.Command("docker", "images", "117503445/sshole-agent", "--format", "{{.Repository}}:{{.Tag}}")
-	agentOutput, err := checkAgentImageCmd.Output()
-	if err != nil {
-		log.Panic().Err(err).Msg("Failed to check agent Docker image")
-	}
-	if len(agentOutput) == 0 {
-		log.Panic().Msg("Docker image '117503445/sshole-agent' not found. Please build or pull the image first.")
-	}
-	log.Info().Str("agent_image", string(agentOutput[:len(agentOutput)-1])).Msg("Agent Docker image found")
-
-	checkEntryImageCmd := exec.Command("docker", "images", "117503445/sshole-entry", "--format", "{{.Repository}}:{{.Tag}}")
-	entryOutput, err := checkEntryImageCmd.Output()
-	if err != nil {
-		log.Panic().Err(err).Msg("Failed to check entry Docker image")
-	}
-	if len(entryOutput) == 0 {
-		log.Panic().Msg("Docker image '117503445/sshole-entry' not found. Please build or pull the image first.")
-	}
-	log.Info().Str("entry_image", string(entryOutput[:len(entryOutput)-1])).Msg("Entry Docker image found")
-
-	// Create a Docker network for the containers to communicate
-	log.Info().Msg("Creating Docker network...")
-	networkCmd := exec.Command("docker", "network", "create", "sshole-auth-test")
-	networkCmd.Stdout = os.Stdout
-	networkCmd.Stderr = os.Stderr
-	if err := networkCmd.Run(); err != nil {
-		log.Warn().Err(err).Msg("Failed to create network (might already exist)")
+func ensureE2EKeypair() string {
+	// Ensure the directory exists
+	if err := os.MkdirAll("/workspace/data/e2e", 0o755); err != nil {
+		log.Panic().Err(err).Msg("Failed to create E2E directory")
 	}
 
-	// Start hub container with auth
-	log.Info().Msg("Starting hub container with auth...")
-	hubCmd := exec.Command("docker", "run", "--name", "hub-auth", "--rm", "--network", "sshole-auth-test", "-e", "AUTH=123456", "117503445/sshole-hub")
-	hubCmd.Stdout = os.Stdout
-	hubCmd.Stderr = os.Stderr
-
-	if err := hubCmd.Start(); err != nil {
-		log.Panic().Err(err).Msg("Failed to start hub container")
+	if _, err := os.Stat(e2ePubKeyPath); err == nil {
+		return e2ePubKeyPath
 	}
 
-	// Wait 1 second
-	log.Info().Msg("Waiting 1 second before starting agent...")
-	time.Sleep(1 * time.Second)
-
-	// Start agent container with auth
-	log.Info().Msg("Starting agent container with auth...")
-	agentCmd := exec.Command("docker", "run", "--name", "agent-auth", "--rm", "--network", "sshole-auth-test", "-e", "AUTH=123456", "117503445/sshole-agent", "--hub-server", "http://hub-auth:9000")
-	agentCmd.Stdout = os.Stdout
-	agentCmd.Stderr = os.Stderr
-
-	if err := agentCmd.Start(); err != nil {
-		log.Panic().Err(err).Msg("Failed to start agent container")
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-f", e2eKeyPath, "-N", "", "-C", "sshole-e2e")
+	if err := cmd.Run(); err != nil {
+		log.Warn().Err(err).Msg("ssh-keygen failed, using fallback public key")
+		fallback := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMa+aWUpQZQR5CQQe/Z9ydCqs1+cLPNYMmowGiPrvRGS sshole-e2e"
+		if writeErr := os.WriteFile(e2ePubKeyPath, []byte(fallback+"\n"), 0o644); writeErr != nil {
+			log.Panic().Err(writeErr).Msg("Failed to write fallback public key")
+		}
+		return e2ePubKeyPath
 	}
-
-	// Wait 3 seconds before starting entry
-	log.Info().Msg("Waiting 3 seconds before starting entry...")
-	time.Sleep(3 * time.Second)
-
-	// Start entry container with auth
-	log.Info().Msg("Starting entry container with auth...")
-	entryCmd := exec.Command("docker", "run", "--name", "entry-auth", "--rm", "--network", "sshole-auth-test", "-e", "AUTH=123456", "117503445/sshole-entry", "--hub-server", "http://hub-auth:9000")
-	entryCmd.Stdout = os.Stdout
-	entryCmd.Stderr = os.Stderr
-
-	if err := entryCmd.Start(); err != nil {
-		log.Panic().Err(err).Msg("Failed to start entry container")
-	}
-
-	// Wait 10 seconds before stopping test
-	log.Info().Msg("Waiting 10 seconds for auth test...")
-	time.Sleep(10 * time.Second)
-
-	// Stop containers (they will be automatically removed due to --rm flag)
-	log.Info().Msg("Stopping containers...")
-	stopHubCmd := exec.Command("docker", "stop", "hub-auth")
-	if err := stopHubCmd.Run(); err != nil {
-		log.Warn().Err(err).Msg("Failed to stop hub container")
-	}
-
-	stopAgentCmd := exec.Command("docker", "stop", "agent-auth")
-	if err := stopAgentCmd.Run(); err != nil {
-		log.Warn().Err(err).Msg("Failed to stop agent container")
-	}
-
-	stopEntryCmd := exec.Command("docker", "stop", "entry-auth")
-	if err := stopEntryCmd.Run(); err != nil {
-		log.Warn().Err(err).Msg("Failed to stop entry container")
-	}
-
-	// Clean up network
-	log.Info().Msg("Cleaning up network...")
-	cleanupCmd := exec.Command("docker", "network", "rm", "sshole-auth-test")
-	if err := cleanupCmd.Run(); err != nil {
-		log.Warn().Err(err).Msg("Failed to remove network")
-	}
-
-	log.Info().Msg("Auth E2E test completed.")
+	return e2ePubKeyPath
 }
 
 func E2e(testCase string) {
 	log.Info().Str("test_case", testCase).Msg("Starting E2E test...")
 
+	// If cwd is not /workspace, panic
+	if cwd, err := os.Getwd(); err != nil {
+		log.Panic().Err(err).Msg("Failed to get current working directory")
+	} else if cwd != "/workspace/scripts/script" {
+		log.Panic().
+			Str("cwd", cwd).
+			Msg("Current working directory is not /workspace/scripts/script. Please run the script in dev container.")
+	}
+
+	mappingFile := ensureE2EMapping()
+	publicKeyPath := ensureE2EKeypair()
+
+	params := caseParams{
+		MappingFile:   mappingFile,
+		PublicKeyPath: publicKeyPath,
+	}
+
+	ctx := context.Background()
+	ctx = log.Logger.WithContext(ctx)
+
 	switch testCase {
 	case "":
 		// Run all test cases when no case is specified
 		log.Info().Msg("Running all test cases...")
-		runBasicTest()
-		runAuthTest()
+		runBasicTest(ctx, params)
+		runAuthTest(ctx, params)
 	case "basic":
-		runBasicTest()
+		runBasicTest(ctx, params)
 	case "auth":
-		runAuthTest()
+		runAuthTest(ctx, params)
 	default:
 		log.Panic().Str("test_case", testCase).Msg("Unknown test case. Available cases: basic, auth")
 	}

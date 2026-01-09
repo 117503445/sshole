@@ -84,8 +84,6 @@ func buildDocker() {
 			tag := "117503445/sshole-" + component.name + ":" + gitCommit + dirtySuffix
 			aliyunTag := "registry.cn-hangzhou.aliyuncs.com/117503445/sshole-" + component.name + ":" + gitCommit + dirtySuffix
 
-			log.Ctx(ctx).Info().Str("component", component.name).Str("tag", tag).Str("aliyunTag", aliyunTag).Bool("dirty", buildInfo.GitDirty).Msg("building docker image")
-
 			// 构建 docker 镜像
 			cmd := exec.Command("docker", "build",
 				"-t", tag,
@@ -95,6 +93,10 @@ func buildDocker() {
 				"-f", component.dockerfile, ".")
 			cmd.Dir = "../.."
 			cmd.Env = os.Environ()
+
+			log.Ctx(ctx).Info().Str("component", component.name).Str("tag", tag).Str("aliyunTag", aliyunTag).Bool("dirty", buildInfo.GitDirty).
+				Str("command", cmd.String()).
+				Msg("building docker image")
 
 			output, err := cmd.CombinedOutput()
 			if err != nil {

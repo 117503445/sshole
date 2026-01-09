@@ -6,6 +6,7 @@ require (
 	github.com/117503445/goutils v0.0.0-20260101165948-3e133cdc3759
 	github.com/alecthomas/kong v1.13.0
 	github.com/rs/zerolog v1.34.0
+	golang.org/x/crypto v0.35.0
 )
 
 require (
