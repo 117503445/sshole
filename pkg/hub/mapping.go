@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 // PortMapping represents the fixed agent<->port mapping loaded at startup.
@@ -16,6 +17,10 @@ func LoadMapping(path string) (*PortMapping, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				return nil, fmt.Errorf("create mapping directory: %w", err)
+			}
+
 			// Create an empty mapping file
 			pm := &PortMapping{Agents: map[string]int{}}
 			if err := SaveMapping(path, pm); err != nil {

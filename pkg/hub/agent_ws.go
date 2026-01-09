@@ -1,6 +1,8 @@
 package hub
 
 import (
+	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -29,8 +31,36 @@ func (h *Hub) handleAgentWS(w http.ResponseWriter, r *http.Request) {
 	_, ok := h.agents[agentName]
 	h.mu.RUnlock()
 	if !ok {
-		http.Error(w, "unknown agent", http.StatusForbidden)
-		return
+		// Agent doesn't exist, add it with an available port
+		h.mu.Lock()
+		port := h.findAvailablePort()
+		h.agents[agentName] = &AgentState{
+			Name:    agentName,
+			HubPort: port,
+		}
+		h.ports[port] = agentName
+
+		// Start listener for the new port
+		ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if err != nil {
+			h.mu.Unlock()
+			log.Error().Err(err).Int("port", port).Msg("failed to start listener for new agent")
+			http.Error(w, "failed to start listener", http.StatusInternalServerError)
+			return
+		}
+		h.listeners[port] = ln
+		h.mu.Unlock()
+
+		go h.servePort(h.ctx, ln, agentName)
+
+		// Persist the mapping
+		if err := h.saveMapping(); err != nil {
+			log.Error().Err(err).Str("agent", agentName).Msg("failed to save mapping")
+			http.Error(w, "failed to persist agent", http.StatusInternalServerError)
+			return
+		}
+
+		log.Info().Str("agent", agentName).Int("port", port).Msg("agent added and persisted")
 	}
 
 	ws, err := websocket.Accept(w, r, &websocket.AcceptOptions{

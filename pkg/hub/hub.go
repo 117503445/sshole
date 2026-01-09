@@ -301,6 +301,26 @@ func (h *Hub) startForwarding(p *PendingSession) {
 	}()
 }
 
+// findAvailablePort finds an available port starting from 10000.
+func (h *Hub) findAvailablePort() int {
+	port := 10000
+	for {
+		if _, exists := h.ports[port]; !exists {
+			return port
+		}
+		port++
+	}
+}
+
+// saveMapping saves the current agent mappings to disk.
+func (h *Hub) saveMapping() error {
+	pm := &PortMapping{Agents: make(map[string]int)}
+	for agent, state := range h.agents {
+		pm.Agents[agent] = state.HubPort
+	}
+	return SaveMapping(h.cfg.MappingFile, pm)
+}
+
 // ioCopy wraps io.Copy with deadlines to ensure timely shutdown.
 func ioCopy(dst net.Conn, src net.Conn) (int64, error) {
 	return io.Copy(dst, src)
