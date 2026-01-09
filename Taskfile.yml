@@ -14,7 +14,8 @@ includes:
     taskfile: ./scripts/tasks/gen
   format:
     taskfile: ./scripts/tasks/format
-
+  test:
+    taskfile: ./scripts/tasks/test
 tasks:
   default:
     desc: "The default task"

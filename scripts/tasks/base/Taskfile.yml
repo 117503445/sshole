@@ -16,9 +16,4 @@ tasks:
 
   dev:
     cmds:
-      - task: e2e
-
-  e2e:
-    deps: [":base:clear", ":build:build-docker"]
-    cmds:
-      - cd ./scripts/script && go run . e-2-e
+      - task: ":test:e2e"
