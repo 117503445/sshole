@@ -22,6 +22,7 @@ type PendingSession struct {
 	AgentName string
 
 	SSHConn net.Conn
+	EntryWS *websocket.Conn // For entry-initiated sessions
 
 	State PendingState
 

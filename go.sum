@@ -1,7 +1,7 @@
 connectrpc.com/connect v1.19.0 h1:LuqUbq01PqbtL0o7vn0WMRXzR2nNsiINe5zfcJ24pJM=
 connectrpc.com/connect v1.19.0/go.mod h1:tN20fjdGlewnSFeZxLKb0xwIZ6ozc3OQs2hTXy4du9w=
-github.com/117503445/goutils v0.0.0-20260101165948-3e133cdc3759 h1:qisbxDuCfsnyYxhoL0lsqIG3Wh2sLBf7xsQw5S7rQ2c=
-github.com/117503445/goutils v0.0.0-20260101165948-3e133cdc3759/go.mod h1:WoFxQeC/I5DZKf8I+uRH3Iiiyz4ddJ9OPAMGmaHLNDw=
+github.com/117503445/goutils v0.0.0-20260110034556-2cb993f55e42 h1:fKr9mac4R+UN4zKSrQhsCCUSm6mvT/w0xx8P6RHRtw0=
+github.com/117503445/goutils v0.0.0-20260110034556-2cb993f55e42/go.mod h1:WoFxQeC/I5DZKf8I+uRH3Iiiyz4ddJ9OPAMGmaHLNDw=
 github.com/alecthomas/assert/v2 v2.11.0 h1:2Q9r3ki8+JYXvGsDyBXwH3LcJ+WK5D0gc5E8vS6K3D0=
 github.com/alecthomas/assert/v2 v2.11.0/go.mod h1:Bze95FyfUr7x34QZrjL+XP+0qgp/zg8yS+TtBj1WA3k=
 github.com/alecthomas/kong v1.12.1 h1:iq6aMJDcFYP9uFrLdsiZQ2ZMmcshduyGv4Pek0MQPW0=

@@ -61,7 +61,7 @@ func runBasicTest(ctx context.Context, params caseParams) {
 
 	// Start entry container
 	log.Info().Msg("Starting entry container...")
-	entryCmd := exec.Command("docker", "run", "--name", "entry", "--rm", "-p", "22222:22222", "--network", "sshole-test", "-v", params.PublicKeyPath+":/tmp/public_key.pub", "-e", "AGENT_NAME=test-agent", "-e", "PUBLIC_KEY=/tmp/public_key.pub", "117503445/sshole-entry", "--hub-server", "http://hub:9000")
+	entryCmd := exec.Command("docker", "run", "--name", "entry", "--rm", "-p", "22222:22222", "--network", "sshole-test", "-v", params.PublicKeyPath+":/tmp/public_key.pub", "-v", params.PrivateKeyPath+":/tmp/private_key", "-e", "AGENT_NAME=test-agent", "-e", "PUBLIC_KEY=/tmp/public_key.pub", "-e", "PRIVATE_KEY=/tmp/private_key", "117503445/sshole-entry", "--hub-server", "http://hub:9000")
 	entryCmd.Stdout = os.Stdout
 	entryCmd.Stderr = os.Stderr
 
@@ -110,8 +110,8 @@ func runBasicTest(ctx context.Context, params caseParams) {
 
 // testSSHConnectivity tests SSH connectivity to the agent container via the hub
 func testSSHConnectivity(params caseParams) {
-	// Derive private key path from public key path
-	keyPath := params.PublicKeyPath[:len(params.PublicKeyPath)-4] // Remove .pub extension
+	// Get private key path
+	keyPath := params.PrivateKeyPath
 	keyBytes, err := os.ReadFile(keyPath)
 	if err != nil {
 		log.Panic().Err(err).Str("key_path", keyPath).Msg("Failed to read private key")
