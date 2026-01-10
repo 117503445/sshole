@@ -14,36 +14,11 @@ func runAuthTest(ctx context.Context, params caseParams) {
 	log.Info().Msg("Starting auth E2E test...")
 
 	// Check if Docker images exist
-	log.Info().Msg("Checking if Docker images exist...")
-	checkHubImageCmd := exec.Command("docker", "images", "117503445/sshole-hub", "--format", "{{.Repository}}:{{.Tag}}")
-	hubOutput, err := checkHubImageCmd.Output()
-	if err != nil {
-		log.Panic().Err(err).Msg("Failed to check hub Docker image")
-	}
-	if len(hubOutput) == 0 {
-		log.Panic().Msg("Docker image '117503445/sshole-hub' not found. Please build or pull the image first.")
-	}
-	log.Info().Str("hub_image", string(hubOutput[:len(hubOutput)-1])).Msg("Hub Docker image found")
-
-	checkAgentImageCmd := exec.Command("docker", "images", "117503445/sshole-agent", "--format", "{{.Repository}}:{{.Tag}}")
-	agentOutput, err := checkAgentImageCmd.Output()
-	if err != nil {
-		log.Panic().Err(err).Msg("Failed to check agent Docker image")
-	}
-	if len(agentOutput) == 0 {
-		log.Panic().Msg("Docker image '117503445/sshole-agent' not found. Please build or pull the image first.")
-	}
-	log.Info().Str("agent_image", string(agentOutput[:len(agentOutput)-1])).Msg("Agent Docker image found")
-
-	checkEntryImageCmd := exec.Command("docker", "images", "117503445/sshole-entry", "--format", "{{.Repository}}:{{.Tag}}")
-	entryOutput, err := checkEntryImageCmd.Output()
-	if err != nil {
-		log.Panic().Err(err).Msg("Failed to check entry Docker image")
-	}
-	if len(entryOutput) == 0 {
-		log.Panic().Msg("Docker image '117503445/sshole-entry' not found. Please build or pull the image first.")
-	}
-	log.Info().Str("entry_image", string(entryOutput[:len(entryOutput)-1])).Msg("Entry Docker image found")
+	checkDockerImages([]string{
+		"117503445/sshole-hub",
+		"117503445/sshole-agent",
+		"117503445/sshole-entry",
+	})
 
 	// Create a Docker network for the containers to communicate
 	log.Info().Msg("Creating Docker network...")

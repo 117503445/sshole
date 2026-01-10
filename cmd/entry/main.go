@@ -12,11 +12,12 @@ import (
 )
 
 var cli struct {
-	HubServer string `env:"HUB_SERVER"`
-	Auth      string `env:"AUTH"`
-	AgentName string `env:"AGENT_NAME"`
-	EntryPort int    `env:"ENTRY_PORT" default:"22222"`
-	PublicKey string `env:"PUBLIC_KEY" default:"~/.ssh/id_ed25519.pub"`
+	HubServer  string `env:"HUB_SERVER"`
+	Auth       string `env:"AUTH"`
+	AgentName  string `env:"AGENT_NAME"`
+	EntryPort  int    `env:"ENTRY_PORT" default:"22222"`
+	PublicKey  string `env:"PUBLIC_KEY" default:"~/.ssh/id_ed25519.pub"`
+	PrivateKey string `env:"PRIVATE_KEY" default:"~/.ssh/id_ed25519"`
 }
 
 func init() {
@@ -42,11 +43,12 @@ func main() {
 	}
 
 	cfg := entry.EntryConfig{
-		HubAddr:       cli.HubServer,
-		Token:         cli.Auth,
-		AgentName:     cli.AgentName,
-		EntryPort:     cli.EntryPort,
-		PublicKeyPath: cli.PublicKey,
+		HubAddr:        cli.HubServer,
+		Token:          cli.Auth,
+		AgentName:      cli.AgentName,
+		EntryPort:      cli.EntryPort,
+		PublicKeyPath:  cli.PublicKey,
+		PrivateKeyPath: cli.PrivateKey,
 	}
 
 	ctx := context.Background()

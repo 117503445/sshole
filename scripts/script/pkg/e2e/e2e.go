@@ -20,8 +20,9 @@ type portMapping struct {
 }
 
 type caseParams struct {
-	MappingFile   string
-	PublicKeyPath string
+	MappingFile    string
+	PublicKeyPath  string
+	PrivateKeyPath string
 }
 
 func ensureE2EMapping() string {
@@ -84,8 +85,9 @@ func E2e(testCase string) {
 	publicKeyPath := ensureE2EKeypair()
 
 	params := caseParams{
-		MappingFile:   mappingFile,
-		PublicKeyPath: publicKeyPath,
+		MappingFile:    mappingFile,
+		PublicKeyPath:  publicKeyPath,
+		PrivateKeyPath: publicKeyPath[:len(publicKeyPath)-4], // Remove .pub extension
 	}
 
 	ctx := context.Background()

@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	connectrpc.com/connect v1.19.0
-	github.com/117503445/goutils v0.0.0-20260101165948-3e133cdc3759
+	github.com/117503445/goutils v0.0.0-20260110034556-2cb993f55e42
 	github.com/alecthomas/kong v1.12.1
 	github.com/coder/websocket v1.8.14
 	github.com/google/uuid v1.6.0

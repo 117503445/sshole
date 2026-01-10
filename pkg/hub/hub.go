@@ -268,6 +268,17 @@ func (h *Hub) bindTunnel(sessionID string, ws *websocket.Conn) (*PendingSession,
 	}
 	p.Tunnel = ws
 	p.State = PendingBOUND
+
+	// For entry-initiated sessions, don't start forwarding here - let waitForAgentAndForward handle it
+	if p.EntryWS == nil {
+		// SSH-initiated session: start forwarding between SSH conn and tunnel
+		log.Info().Str("session", sessionID).Msg("SSH-initiated session: starting forwarding between SSH and tunnel")
+		h.startForwarding(p)
+	} else {
+		log.Info().Str("session", sessionID).Msg("entry-initiated session: agent tunnel bound, will forward entry<->agent")
+		// For entry-initiated sessions, the waitForAgentAndForward goroutine will handle forwarding
+	}
+
 	return p, nil
 }
 
@@ -319,6 +330,70 @@ func (h *Hub) saveMapping() error {
 		pm.Agents[agent] = state.HubPort
 	}
 	return SaveMapping(h.cfg.MappingFile, pm)
+}
+
+// waitForAgentAndForward waits for agent tunnel to connect, then forwards between entry and agent WebSockets.
+func (h *Hub) waitForAgentAndForward(sessionID string, entryWS *websocket.Conn) {
+	// Wait for the pending session to be bound (agent connects)
+	timeout := time.NewTimer(h.cfg.PendingTimeout)
+	defer timeout.Stop()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout.C:
+			log.Warn().Str("session", sessionID).Msg("timeout waiting for agent tunnel")
+			entryWS.Close(websocket.StatusInternalError, "timeout waiting for agent")
+			h.cleanupPending(sessionID, PendingTIMEOUT)
+			return
+		case <-ticker.C:
+			h.mu.RLock()
+			p, ok := h.pending[sessionID]
+			h.mu.RUnlock()
+			if !ok {
+				log.Warn().Str("session", sessionID).Msg("pending session disappeared")
+				entryWS.Close(websocket.StatusInternalError, "session error")
+				return
+			}
+			if p.State == PendingBOUND && p.Tunnel != nil {
+				// Agent tunnel is ready, start forwarding between entry and agent WebSockets
+				log.Info().Str("session", sessionID).Msg("agent tunnel ready, starting entry-agent forwarding")
+				h.startWebSocketForwarding(entryWS, p.Tunnel)
+				return
+			}
+		}
+	}
+}
+
+// startWebSocketForwarding forwards data between two WebSocket connections.
+func (h *Hub) startWebSocketForwarding(ws1, ws2 *websocket.Conn) {
+	wsConn1 := tunnel.NetConn(h.ctx, ws1)
+	wsConn2 := tunnel.NetConn(h.ctx, ws2)
+
+	closeOnce := sync.Once{}
+	cleanup := func() {
+		closeOnce.Do(func() {
+			wsConn1.Close()
+			wsConn2.Close()
+		})
+	}
+
+	go func() {
+		defer cleanup()
+		_, err := ioCopy(wsConn1, wsConn2)
+		if err != nil {
+			log.Debug().Err(err).Msg("ws2->ws1 copy ended")
+		}
+	}()
+
+	go func() {
+		defer cleanup()
+		_, err := ioCopy(wsConn2, wsConn1)
+		if err != nil {
+			log.Debug().Err(err).Msg("ws1->ws2 copy ended")
+		}
+	}()
 }
 
 // ioCopy wraps io.Copy with deadlines to ensure timely shutdown.
