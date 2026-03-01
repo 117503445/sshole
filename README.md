@@ -77,6 +77,10 @@ ssh user@localhost -p 2222
 
 ## 📚 详细文档
 
+- [构建与测试](docs/build-test.md) - 构建命令和测试指南
+- [项目架构](docs/architecture.md) - 系统架构和组件设计
+- [配置说明](docs/configuration.md) - 环境变量和命令行参数
+- [开发指南](docs/development.md) - 开发注意事项和代码规范
 - [概要设计说明书](docs/design.high-level.md) - 系统整体架构和设计理念
 - [详细设计说明书](docs/design.detailed.md) - 实现级技术细节和接口规范
 
