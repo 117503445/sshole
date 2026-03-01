@@ -5,15 +5,60 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	e2eMappingPath = "/workspace/data/e2e/port_mapping_e2e.json"
-	e2eKeyPath     = "/workspace/data/e2e/sshole_e2e_id_ed25519"
-	e2ePubKeyPath  = "/workspace/data/e2e/sshole_e2e_id_ed25519.pub"
+var (
+	projectRoot     string
+	e2eDataDir      string
+	e2eMappingPath  string
+	e2eKeyPath      string
+	e2ePubKeyPath   string
 )
+
+func init() {
+	// Detect project root by finding go.mod
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Panic().Err(err).Msg("Failed to get working directory")
+	}
+
+	// Walk up to find go.mod or use current directory structure
+	dir := wd
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			// Check if this is the scripts/script directory
+			if filepath.Base(dir) == "script" {
+				parent := filepath.Dir(dir)
+				if filepath.Base(parent) == "scripts" {
+					projectRoot = filepath.Dir(parent)
+					break
+				}
+			}
+			// Check if this looks like the sshole project root
+			if _, err := os.Stat(filepath.Join(dir, "cmd")); err == nil {
+				projectRoot = dir
+				break
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached root, use current directory
+			projectRoot = wd
+			break
+		}
+		dir = parent
+	}
+
+	e2eDataDir = filepath.Join(projectRoot, "data", "e2e")
+	e2eMappingPath = filepath.Join(e2eDataDir, "port_mapping_e2e.json")
+	e2eKeyPath = filepath.Join(e2eDataDir, "sshole_e2e_id_ed25519")
+	e2ePubKeyPath = filepath.Join(e2eDataDir, "sshole_e2e_id_ed25519.pub")
+
+	log.Info().Str("project_root", projectRoot).Str("e2e_data_dir", e2eDataDir).Msg("E2E paths configured")
+}
 
 type portMapping struct {
 	Agents map[string]int `json:"agents"`
@@ -27,7 +72,7 @@ type caseParams struct {
 
 func ensureE2EMapping() string {
 	// Ensure the directory exists
-	if err := os.MkdirAll("/workspace/data/e2e", 0o755); err != nil {
+	if err := os.MkdirAll(e2eDataDir, 0o755); err != nil {
 		log.Panic().Err(err).Msg("Failed to create E2E directory")
 	}
 
@@ -49,7 +94,7 @@ func ensureE2EMapping() string {
 
 func ensureE2EKeypair() string {
 	// Ensure the directory exists
-	if err := os.MkdirAll("/workspace/data/e2e", 0o755); err != nil {
+	if err := os.MkdirAll(e2eDataDir, 0o755); err != nil {
 		log.Panic().Err(err).Msg("Failed to create E2E directory")
 	}
 
@@ -71,15 +116,6 @@ func ensureE2EKeypair() string {
 
 func E2e(testCase string) {
 	log.Info().Str("test_case", testCase).Msg("Starting E2E test...")
-
-	// If cwd is not /workspace, panic
-	if cwd, err := os.Getwd(); err != nil {
-		log.Panic().Err(err).Msg("Failed to get current working directory")
-	} else if cwd != "/workspace/scripts/script" {
-		log.Panic().
-			Str("cwd", cwd).
-			Msg("Current working directory is not /workspace/scripts/script. Please run the script in dev container.")
-	}
 
 	mappingFile := ensureE2EMapping()
 	publicKeyPath := ensureE2EKeypair()
