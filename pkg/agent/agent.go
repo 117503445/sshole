@@ -44,11 +44,18 @@ func (a *Agent) Start(ctx context.Context) error {
 	a.cancel = cancel
 	defer cancel()
 
-	cleanup, err := a.ensureSSHD(a.ctx, a.cfg.LocalPort)
-	if err != nil {
-		return err
+	var cleanup func()
+	if !a.cfg.SkipSSHD {
+		var err error
+		cleanup, err = a.ensureSSHD(a.ctx, a.cfg.LocalPort)
+		if err != nil {
+			return err
+		}
+		defer cleanup()
+	} else {
+		log.Info().Int("port", a.cfg.LocalPort).Msg("skip sshd, assuming existing SSH server")
+		cleanup = func() {}
 	}
-	defer cleanup()
 
 	attempt := 0
 	for {

@@ -13,6 +13,10 @@ type AgentConfig struct {
 	AgentName string
 	LocalPort int
 
+	// SkipSSHD when true skips starting the embedded sshd server.
+	// The agent will connect to an existing SSH server on LocalPort.
+	SkipSSHD bool
+
 	Timeouts common.Timeouts
 }
 

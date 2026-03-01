@@ -19,6 +19,7 @@ var cli struct {
 	Auth       string        `env:"AUTH"`
 	Name       string        `env:"NAME"`
 	LocalPort  int           `env:"LOCAL_PORT" default:"22222"`
+	SkipSSHD   bool          `env:"SKIP_SSHD" help:"Skip starting embedded sshd, connect to existing SSH server on LocalPort"`
 	TunnelDial time.Duration `env:"TUNNEL_DIAL_TIMEOUT" default:"5s"`
 }
 
@@ -57,6 +58,7 @@ func main() {
 		Token:     cli.Auth,
 		AgentName: cli.Name,
 		LocalPort: cli.LocalPort,
+		SkipSSHD:  cli.SkipSSHD,
 	}
 	cfg.Timeouts = common.DefaultTimeouts()
 	cfg.Timeouts.TunnelDialTimeout = cli.TunnelDial
