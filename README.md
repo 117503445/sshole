@@ -1,125 +1,180 @@
 # sshole
 
-基于 Go 开发的 SSH 连接代理系统，通过 WebSocket 实现内网穿透，允许从开发机 SSH 连接到内网容器。
+基于 Go 开发的 SSH 连接代理系统，通过 WebSocket 实现内网穿透，允许连接内网机器。
 
-## 🚀 特性
+## 架构
 
-- **零配置内网穿透**: 无需公网 IP 或复杂网络配置
-- **标准 SSH 协议**: 完全兼容标准 SSH 客户端
-- **WebSocket 传输**: 基于 WebSocket 的安全数据传输
-- **轻量级架构**: 控制连接复用 + 会话级独立隧道
-- **容器友好**: 专为容器化环境设计
-- **高性能**: 基于 `github.com/coder/websocket` 的零分配实现
+分为三个组件
 
-## 📋 系统架构
+- Agent: 部署在内网机器上，启动 SSH Server，并建立与 Hub 的连接
+- Hub: 部署在公网机器上，提供 Agent SSH 服务
+- Entry: 可选，部署在开发机器上。连接到 Hub Websocket 后，在本地提供 Agent SSH 服务
 
-本系统由三个核心组件组成：
+## 使用方式
 
-### 🖥️ Agent（内网代理）
-- 部署在内网容器中
-- 自动启动内置 OpenSSH 服务
-- 建立与 Hub 的长期 WebSocket 控制连接
-- 按需建立数据隧道转发 SSH 流量
+从 [Latest Release](https://github.com/117503445/sshole/releases/latest) 下载预编译二进制。
 
-### 🌐 Hub（中转服务器）
-- 部署在公网服务器
-- 管理 Agent 注册和端口映射
-- 提供 SSH 入口和 WebSocket 端点
-- 处理数据转发和连接管理
+### Agent
 
-### 💻 Entry（可选本地转发器）
-- 运行在开发机上
-- 提供本地端口转发体验
-- 自动管理 SSH 公钥分发
-- 简化用户连接流程
+部署在内网机器上。启动后：
 
-## 🔧 快速开始
-
-### 前置要求
-
-- Go 1.25.5+
-- Docker (用于开发环境)
-
-### 构建
+1. 启动内置 SSH 服务器，监听 `127.0.0.1:local-port`
+2. 建立与 Hub 的 WebSocket 控制连接
+3. 收到 Hub 的 OPEN 消息时，建立隧道连接本地 SSHD
 
 ```bash
-# 构建所有组件
-go-task build:all
-
-# 构建单个组件
-go-task build:hub
-go-task build:agent
-go-task build:entry
+./sshole-agent \
+  --hub-server "http://hub:9000" \
+  --auth "my-secret-token" \
+  --name "agent-1"
 ```
 
-### 运行开发环境
+| 参数 | 环境变量 | 类型 | 默认值 | 说明 |
+|------|----------|------|--------|------|
+| `--hub-server` | `HUB_SERVER` | string | - | Hub 服务器地址（必填） |
+| `--auth` | `AUTH` | string | - | 认证 Token（必填） |
+| `--name` | `NAME` | string | hostname | Agent 名称 |
+| `--local-port` | `LOCAL_PORT` | int | `22222` | 本地 SSHD 监听端口 |
+| `--skip-sshd` | `SKIP_SSHD` | bool | `false` | 跳过启动内置 SSHD |
+| `--tunnel-dial` | `TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
+
+### Hub
+
+部署在公网机器上。启动后：
+
+1. 加载端口映射文件，记录 agentName -> hubPort 的映射关系
+2. 启动 HTTP 服务（WebSocket 端点、RPC 接口）
+3. 为每个 Agent 启动 SSH 端口监听
+4. 收到 SSH 连接时，通知 Agent 建立隧道并转发数据
 
 ```bash
-# 启动开发容器
-go-task base:dev
-
-# 运行端到端测试
-go-task base:e2e
+./sshole-hub \
+  --auth-token "my-secret-token" \
+  --http-addr ":9000"
 ```
 
-### 部署示例
+| 参数 | 环境变量 | 类型 | 默认值 | 说明 |
+|------|----------|------|--------|------|
+| `--auth-token` | `AUTH` | string | - | 认证 Token（必填） |
+| `--http-addr` | `HTTP_ADDR` | string | `:9000` | HTTP 服务监听地址 |
+| `--mapping-file` | `MAPPING_FILE` | string | `data/port_mapping.json` | 端口映射持久化文件路径 |
+| `--pending` | `PENDING_TIMEOUT` | duration | `10s` | 等待隧道建立的超时时间 |
+| `--tunnel-dial` | `TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
+
+### Entry
+
+可选，部署在开发机器上。启动后：
+
+1. 查询 Hub 获取目标 Agent 信息
+2. 将本地 SSH 公钥推送到 Agent 的 `authorized_keys`
+3. 在本地监听 SSH 端口
+4. 收到连接时，通过 Hub 建立到 Agent 的隧道
 
 ```bash
-# 启动 Hub
-docker run -d --name hub -p 9000:9000 -p 2222:2222 117503445/sshole-hub
-
-# 启动 Agent (内网容器)
-docker run -d --name agent 117503445/sshole-agent --hub-server http://hub:9000
-
-# 连接到内网容器
-ssh user@localhost -p 2222
+./sshole-entry \
+  --hub-server "http://hub:9000" \
+  --auth "my-secret-token" \
+  --agent-name "agent-1" \
+  --entry-port 2222
 ```
 
-## 📚 详细文档
+| 参数 | 环境变量 | 类型 | 默认值 | 说明 |
+|------|----------|------|--------|------|
+| `--hub-server` | `HUB_SERVER` | string | - | Hub 服务器地址（必填） |
+| `--auth` | `AUTH` | string | - | 认证 Token（必填） |
+| `--agent-name` | `AGENT_NAME` | string | - | 目标 Agent 名称（必填） |
+| `--entry-port` | `ENTRY_PORT` | int | `22222` | 本地监听端口 |
+| `--public-key` | `PUBLIC_KEY` | string | `~/.ssh/id_ed25519.pub` | SSH 公钥路径 |
+| `--private-key` | `PRIVATE_KEY` | string | `~/.ssh/id_ed25519` | SSH 私钥路径 |
 
-- [构建与测试](docs/build-test.md) - 构建命令和测试指南
-- [项目架构](docs/architecture.md) - 系统架构和组件设计
-- [配置说明](docs/configuration.md) - 环境变量和命令行参数
-- [开发指南](docs/development.md) - 开发注意事项和代码规范
-- [概要设计说明书](docs/design.high-level.md) - 系统整体架构和设计理念
-- [详细设计说明书](docs/design.detailed.md) - 实现级技术细节和接口规范
+## 示例
 
-## 🔒 安全特性
+### 示例一：Agent + Hub
 
-- **Token 认证**: 所有组件间通信使用 Bearer Token
-- **TLS 加密**: 生产环境建议配置 TLS
-- **最小权限**: Agent SSHD 仅监听本地回环地址
-- **会话隔离**: 每个 SSH 会话使用独立 WebSocket 隧道
+最简部署，适合 Hub 有独立公网 IP、可以直接暴露 TCP SSH 端口 的场景。
 
-## 🏗️ 技术栈
+```
+┌─────────────┐         ┌─────────────┐
+│   Agent     │◀──WS────│     Hub     │
+│ (内网机器)   │         │ (公网机器)   │
+│  SSHD       │         │  :2222      │
+└─────────────┘         └─────────────┘
+                              ▲
+                              │ SSH
+                              │
+                        ┌─────────────┐
+                        │   Client    │
+                        └─────────────┘
+```
 
-- **语言**: Go 1.25.5
-- **WebSocket**: [github.com/coder/websocket](https://github.com/coder/websocket)
-- **RPC**: [connectrpc.com/connect](https://connectrpc.com/)
-- **日志**: [github.com/rs/zerolog](https://github.com/rs/zerolog)
-- **配置**: [github.com/alecthomas/kong](https://github.com/alecthomas/kong)
-
-## 📄 许可证
-
-本项目采用 [GNU Affero General Public License v3.0](LICENSE) 许可证。
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-### 开发环境设置
+**公网机器 - Hub**
 
 ```bash
-# 克隆项目
-git clone https://github.com/117503445/sshole.git
-cd sshole
+./sshole-hub --auth-token "secret"
+```
 
-# 安装依赖
-go mod download
+**内网机器 - Agent**
 
-# 运行测试
-go test ./...
+```bash
+./sshole-agent \
+  --hub-server "http://hub.example.com:9000" \
+  --auth "secret" \
+  --name "agent-1"
+```
 
-# 格式化代码
-go-task format:all
+**SSH 连接**
+
+查看 Hub 的端口映射文件或日志，找到 agent-1 的 hubPort
+
+```bash
+ssh root@hub.example.com -p <hubPort>
+```
+
+### 示例二：Agent + Hub + Entry
+
+完整部署，适合 Hub 只能接收 HTTP/WS 连接，不能暴露 TCP SSH 端口的场景。
+
+```
+┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+│   Agent     │◀──WS────│     Hub     │◀──WS────│    Entry    │
+│ (内网机器)   │         │ (中转服务器) │         │ (开发机器)   │
+│  SSHD       │         │             │         │  :22222     │
+└─────────────┘         └─────────────┘         └─────────────┘
+                                                     ▲
+                                                     │ SSH
+                                                     │
+                                               ┌─────────────┐
+                                               │   Client    │
+                                               └─────────────┘
+```
+
+**中转服务器 - Hub**
+
+```bash
+./sshole-hub --auth-token "secret"
+```
+
+**内网机器 - Agent**
+
+```bash
+./sshole-agent \
+  --hub-server "http://hub.example.com:9000" \
+  --auth "secret" \
+  --name "agent-1"
+```
+
+**开发机器 - Entry**
+
+```bash
+./sshole-entry \
+  --hub-server "http://hub.example.com:9000" \
+  --auth "secret" \
+  --agent-name "agent-1" \
+  --entry-port 22222
+```
+
+**SSH 连接**
+
+```bash
+ssh root@localhost -p 22222
 ```
