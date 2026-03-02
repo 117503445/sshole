@@ -1,27 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-# WORKFLOW
-
-收到任务后立即执行：
-
-1. 分析用户请求
-2. 运行 `find docs/ -name "*.md" | sort` 查看可用文档，阅读与当前任务相关的文档
-3. 制定执行计划，必须包含测试用例
-4. 任务执行完毕，测试通过 `task test:all`，更新 `docs` `README` 文档，修改 `scripts/tasks` 任务，向用户报告结果
-
-尽量不要打扰用户。但如果遇到了重大的设计问题，请及时向用户报告。
-
-# KEY FILES
-
-- `docs/build-test.md` - 构建与测试命令
-- `docs/architecture.md` - 项目架构
-- `docs/configuration.md` - 环境变量配置
-- `docs/development.md` - 开发注意事项
-- `Taskfile.yml` - 构建任务定义
-
-# REMEMBER
-
-- 使用 Task (Taskfile)，不是 Make
-- 日志库: zerolog，默认级别 Debug，使用 ctx
+- **重要!!!** 必须在 `docs/tasks/working.md` 中记录你的工作内容
+- 必须使用 `go-task` 实际执行任务，并记录工作内容
+- 发现冲突、风险或不合理要求时，先明确指出再继续
+- 完成代码修改后，必须同步修改文档 `README.md` `docs`，修改任务 `Taskfile.yml` `scripts/tasks/`
