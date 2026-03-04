@@ -4,19 +4,19 @@
 
 ## 配置方式
 
-所有组件通过命令行参数进行配置，使用 [kong](https://github.com/alecthomas/kong) 库解析。
+所有组件通过命令行参数进行配置，使用 [kong](https://github.com/alecthomas/kong) 库解析，支持环境变量。
 
 ## Hub 配置
 
 ### 命令行参数
 
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--auth-token` | string | - | 认证 Token（必填） |
-| `--http-addr` | string | `:9000` | HTTP 服务监听地址 |
-| `--mapping-file` | string | - | 端口映射持久化文件路径 |
-| `--pending-timeout` | duration | `10s` | 等待隧道建立的超时时间 |
-| `--tunnel-dial-timeout` | duration | `5s` | 隧道拨号超时时间 |
+| 参数 | 环境变量 | 类型 | 默认值 | 说明 |
+|------|----------|------|--------|------|
+| `--auth-token` | `AUTH` | string | - | 认证 Token（必填） |
+| `--http-addr` | `HTTP_ADDR` | string | `:9000` | HTTP 服务监听地址 |
+| `--mapping-file` | `MAPPING_FILE` | string | `data/port_mapping.json` | 端口映射持久化文件路径 |
+| `--pending-timeout` | `PENDING_TIMEOUT` | duration | `10s` | 等待隧道建立的超时时间 |
+| `--tunnel-dial-timeout` | `TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
 
 ### 示例
 
