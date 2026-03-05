@@ -214,20 +214,31 @@ func (e *Entry) readPublicKey() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
+// ensureKnownHost 确保本地 ~/.ssh/known_hosts 包含 Agent 的主机公钥。
+// 这样 SSH 客户端首次连接时不会弹出 "The authenticity of host can't be established" 提示。
+//
+// 原理：Agent 使用固定的内置主机密钥（见 pkg/agent/hostkey.go），Entry 启动时
+// 将该公钥追加到本地 known_hosts，实现无感知的 SSH 连接。
 func ensureKnownHost(entryPort int) error {
+	// 获取当前用户主目录
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
 	}
+	// 确保 ~/.ssh 目录存在，权限 700（SSH 标准要求）
 	sshDir := filepath.Join(home, ".ssh")
 	if err := os.MkdirAll(sshDir, 0o700); err != nil {
 		return err
 	}
+	// known_hosts 文件路径
 	knownHosts := filepath.Join(sshDir, "known_hosts")
+	// 构造条目格式: [localhost]:<port> <公钥类型> <公钥内容> <注释>
 	entry := fmt.Sprintf("[localhost]:%d %s\n", entryPort, agent.HostPublicKey())
+	// 如果已存在则跳过，避免重复写入
 	if data, err := os.ReadFile(knownHosts); err == nil && strings.Contains(string(data), entry) {
 		return nil
 	}
+	// 追加到 known_hosts，权限 600（SSH 标准要求）
 	f, err := os.OpenFile(knownHosts, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
@@ -237,43 +248,50 @@ func ensureKnownHost(entryPort int) error {
 	return err
 }
 
-// testSSHConnectivity tests SSH connectivity through the tunnel
+// testSSHConnectivity 测试 SSH 隧道连通性。
+// 如果配置了私钥，使用公钥认证；否则跳过主机密钥验证。
 func (e *Entry) testSSHConnectivity() error {
 	log.Info().Msg("Testing SSH connectivity...")
 
-	// Get private key path
-	keyPath := e.cfg.PrivateKeyPath
-	if strings.HasPrefix(keyPath, "~") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("get home dir: %w", err)
-		}
-		keyPath = filepath.Join(home, strings.TrimPrefix(keyPath, "~"))
-	}
-
-	// Read private key
-	keyBytes, err := os.ReadFile(keyPath)
-	if err != nil {
-		return fmt.Errorf("read private key %s: %w", keyPath, err)
-	}
-
-	// Parse private key
-	signer, err := ssh.ParsePrivateKey(keyBytes)
-	if err != nil {
-		return fmt.Errorf("parse private key: %w", err)
-	}
-
-	// Create SSH client config
+	// 构建 SSH 客户端配置
 	config := &ssh.ClientConfig{
-		User: "root",
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-		},
+		User:            "root",
+		Auth:            []ssh.AuthMethod{},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         10 * time.Second,
 	}
 
-	// Connect to localhost:entryPort
+	setupPrivateKey := func() {
+		// 如果配置了私钥，使用公钥认证
+		if e.cfg.PrivateKeyPath != "" {
+			// 解析私钥路径（处理 ~ 前缀）
+			keyPath := e.cfg.PrivateKeyPath
+			if strings.HasPrefix(keyPath, "~") {
+				home, err := os.UserHomeDir()
+				if err != nil {
+					log.Error().Err(err).Msg("get home dir failed")
+					return
+				}
+				keyPath = filepath.Join(home, strings.TrimPrefix(keyPath, "~"))
+			}
+
+			// 读取并解析私钥
+			keyBytes, err := os.ReadFile(keyPath)
+			if err != nil {
+				log.Error().Err(err).Msg("read private key failed")
+				return
+			}
+			signer, err := ssh.ParsePrivateKey(keyBytes)
+			if err != nil {
+				log.Error().Err(err).Msg("parse private key failed")
+				return
+			}
+			config.Auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
+		}
+	}
+	setupPrivateKey()
+
+	// 连接到本地 Entry 端口
 	addr := fmt.Sprintf("localhost:%d", e.cfg.EntryPort)
 	log.Info().Str("addr", addr).Msg("Connecting to SSH tunnel...")
 	client, err := ssh.Dial("tcp", addr, config)
@@ -282,19 +300,18 @@ func (e *Entry) testSSHConnectivity() error {
 	}
 	defer client.Close()
 
-	// Create a session
+	// 创建会话并执行测试命令
 	session, err := client.NewSession()
 	if err != nil {
 		return fmt.Errorf("create SSH session: %w", err)
 	}
 	defer session.Close()
 
-	// Execute a simple command to test connectivity
-	log.Info().Msg("Executing test command...")
 	var stdoutBuf bytes.Buffer
 	session.Stdout = &stdoutBuf
 	session.Stderr = os.Stderr
 
+	log.Info().Msg("Executing test command...")
 	err = session.Run("echo 'SSH tunnel test successful'")
 	if err != nil {
 		return fmt.Errorf("execute test command: %w", err)

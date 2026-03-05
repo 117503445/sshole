@@ -24,6 +24,7 @@ func (a *Agent) ensureSSHD(ctx context.Context, port int) (func(), error) {
 	cfg := &sshlib.Config{
 		ListenAddr:     listenAddr,
 		HostKeyContent: hostPrivateKey,
+		// HostKeyBuiltin: true,
 	}
 
 	// Only enable public key auth if authorized_keys file has content
@@ -45,7 +46,7 @@ func (a *Agent) ensureSSHD(ctx context.Context, port int) (func(), error) {
 
 	errCh := make(chan error, 1)
 	go func() {
-		if err := server.Start(); err != nil {
+		if err := server.Start(ctx); err != nil {
 			errCh <- err
 		}
 	}()
