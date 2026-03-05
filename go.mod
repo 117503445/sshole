@@ -5,7 +5,7 @@ go 1.26
 require (
 	connectrpc.com/connect v1.19.0
 	github.com/117503445/goutils v0.0.0-20260213062430-ac8ec6a13843
-	github.com/117503445/sshdev v0.0.0-20260304175526-c188e7edcdd9
+	github.com/117503445/sshdev v0.0.0-20260305035020-6ae97e49d913
 	github.com/alecthomas/kong v1.13.0
 	github.com/coder/websocket v1.8.14
 	github.com/google/uuid v1.6.0

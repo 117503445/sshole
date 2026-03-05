@@ -39,7 +39,7 @@ func (a *Agent) ensureSSHD(ctx context.Context, port int) (func(), error) {
 		log.Info().Msg("no authorized_keys found, running without authentication")
 	}
 
-	server, err := sshlib.NewServer(cfg)
+	server, err := sshlib.NewServer(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("create ssh server: %w", err)
 	}
