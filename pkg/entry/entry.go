@@ -51,13 +51,15 @@ func (e *Entry) Start(ctx context.Context) error {
 	}
 	pubKey, err := e.readPublicKey()
 	if err != nil {
-		return err
-	}
-	if err := e.appendKnownHost(ctx, agent.AgentName, pubKey); err != nil {
-		log.Warn().Err(err).Msg("failed to push known_hosts to agent")
-	}
-	if err := ensureKnownHost(e.cfg.EntryPort); err != nil {
-		log.Warn().Err(err).Msg("failed to append known_hosts")
+		log.Warn().Err(err).Msg("failed to read public key")
+	} else {
+		log.Info().Str("agent", agent.AgentName).Str("pub_key", pubKey).Msg("append known_hosts")
+		if err := e.appendKnownHost(ctx, agent.AgentName, pubKey); err != nil {
+			log.Warn().Err(err).Msg("failed to push known_hosts to agent")
+		}
+		if err := ensureKnownHost(e.cfg.EntryPort); err != nil {
+			log.Warn().Err(err).Msg("failed to append known_hosts")
+		}
 	}
 
 	listenAddr := fmt.Sprintf(":%d", e.cfg.EntryPort)
