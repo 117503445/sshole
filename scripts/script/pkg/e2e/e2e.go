@@ -6,9 +6,32 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
+
+// goModulePathRegex matches paths in Go module cache, extracting module path with version
+var goModulePathRegex = regexp.MustCompile(`(github\.com/[^\@]+@[^\}/]+)(.*)`)
+
+// formatCallerPath formats file path for display
+func formatCallerPath(file string, line int) string {
+	// Try to match Go module cache path pattern
+	if matches := goModulePathRegex.FindStringSubmatch(file); len(matches) >= 3 {
+		return matches[1] + matches[2] + ":" + strconv.Itoa(line)
+	}
+
+	// Try to find "pkg/mod/" in path and extract from there
+	if _, after, ok := strings.Cut(file, "pkg/mod/"); ok {
+		return after + ":" + strconv.Itoa(line)
+	}
+
+	// Default: use basename only
+	return filepath.Base(file) + ":" + strconv.Itoa(line)
+}
 
 var (
 	projectRoot     string
@@ -19,6 +42,11 @@ var (
 )
 
 func init() {
+	// Set custom caller marshal function for better path display
+	zerolog.CallerMarshalFunc = func(pc uintptr, file string, line int) string {
+		return formatCallerPath(file, line)
+	}
+
 	// Detect project root by finding go.mod
 	wd, err := os.Getwd()
 	if err != nil {

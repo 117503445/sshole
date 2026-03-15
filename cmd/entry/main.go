@@ -5,6 +5,7 @@ import (
 
 	"github.com/117503445/goutils/glog"
 	"github.com/117503445/sshole/internal/buildinfo"
+	"github.com/117503445/sshole/pkg/common"
 	"github.com/117503445/sshole/pkg/entry"
 	"github.com/alecthomas/kong"
 	"github.com/rs/zerolog"
@@ -22,6 +23,7 @@ var cli struct {
 
 func init() {
 	glog.InitZeroLog()
+	common.SetCallerMarshalFunc()
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
 

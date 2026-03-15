@@ -25,6 +25,7 @@ var cli struct {
 
 func init() {
 	glog.InitZeroLog()
+	common.SetCallerMarshalFunc()
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
 

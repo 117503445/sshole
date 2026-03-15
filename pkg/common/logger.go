@@ -1,43 +1,38 @@
 package common
 
 import (
-	"context"
-	"fmt"
-	"io"
-	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
-type InitLoggerOption struct {
-	Component string
+// callerMarshalRegex matches paths in Go module cache, extracting module path with version
+// e.g., ../root/go/pkg/mod/github.com/117503445/sshdev@v0.0.0-xxx/internal/server/server.go
+// -> github.com/117503445/sshdev@v0.0.0-xxx/internal/server/server.go
+var callerMarshalRegex = regexp.MustCompile(`(github\.com/[^\@]+@[^\}/]+)(.*)`)
+
+// callerMarshalFunc formats file path for display in logs
+// For Go module cache paths, extracts module path with version
+func callerMarshalFunc(pc uintptr, file string, line int) string {
+	// Try to match Go module cache path pattern (github.com/user/repo@version)
+	if matches := callerMarshalRegex.FindStringSubmatch(file); len(matches) >= 3 {
+		return matches[1] + matches[2] + ":" + strconv.Itoa(line)
+	}
+
+	// Fallback: try to extract from pkg/mod/ path
+	if _, after, ok := strings.Cut(file, "pkg/mod/"); ok {
+		return after + ":" + strconv.Itoa(line)
+	}
+
+	// Default: use basename only
+	return filepath.Base(file) + ":" + strconv.Itoa(line)
 }
 
-func InitLogger(ctx context.Context, option InitLoggerOption) context.Context {
-	zerolog.CallerMarshalFunc = func(pc uintptr, file string, line int) string {
-		return filepath.Base(file) + ":" + strconv.Itoa(line)
-	}
-	zerolog.TimeFieldFormat = "2006-01-02 15:04:05.000"
-
-	writers := []io.Writer{os.Stdout}
-	writer := io.MultiWriter(writers...)
-
-	logger := log.Output(zerolog.ConsoleWriter{Out: writer, TimeFormat: "2006-01-02 15:04:05.000", NoColor: false, FormatCaller: func(i any) string {
-		var c string
-		if cc, ok := i.(string); ok {
-			c = cc
-		}
-		if len(c) > 0 {
-			c = fmt.Sprintf("[%v] %v >", option.Component, c)
-		} else {
-			c = fmt.Sprintf("[%v] >", option.Component)
-		}
-		return c
-	},
-	}).Level(zerolog.DebugLevel).With().Caller().Logger()
-	ctx = logger.WithContext(ctx)
-	return ctx
+// SetCallerMarshalFunc sets the global CallerMarshalFunc for zerolog.
+// Must be called after glog.InitZeroLog() to override its default setting.
+func SetCallerMarshalFunc() {
+	zerolog.CallerMarshalFunc = callerMarshalFunc
 }
