@@ -2,6 +2,7 @@ version: 3
 
 tasks:
   clear:
+    desc: "清屏"
     internal: true
     silent: true
     run: once
@@ -9,11 +10,12 @@ tasks:
       - clear || true
 
   default:
-    desc: "The default task"
+    desc: "默认任务"
     deps: ["clear"]
     cmds:
       - task: dev
 
   dev:
+    desc: "开发模式"
     cmds:
       - task: ":test:e2e"

@@ -2,6 +2,7 @@ version: 3
 
 tasks:
   bin:
+    desc: "编译二进制文件"
     deps: [":base:clear", ":gen:gen"]
     sources:
       - ./cmd/**
@@ -20,6 +21,7 @@ tasks:
       - cd ./scripts/script && go run . build
 
   docker:
+    desc: "构建 Docker 镜像"
     deps: [":base:clear", ":build:bin"]
     sources:
       - ./scripts/docker/agent.Dockerfile
@@ -32,6 +34,7 @@ tasks:
       - cd ./scripts/script && go run . build-docker {{.CLI_ARGS}}
 
   release:
+    desc: "构建发布版本"
     deps: [":base:clear"]
     sources:
       - ./cmd/**

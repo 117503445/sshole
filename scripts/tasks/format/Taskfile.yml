@@ -2,6 +2,7 @@ version: 3
 
 tasks:
   format:
+    desc: "格式化代码"
     deps: [":base:clear"]
     cmds:
       - cd ./scripts/script && go run . format

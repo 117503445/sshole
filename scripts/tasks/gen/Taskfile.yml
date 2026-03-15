@@ -2,6 +2,7 @@ version: 3
 
 tasks:
   gen:
+    desc: "生成 RPC 代码"
     deps: [":base:clear"]
     sources:
       - pkg/rpc/v1/sshole.proto
