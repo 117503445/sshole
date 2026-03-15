@@ -13,21 +13,51 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// pushImage 推送单个镜像
-func pushImage(ctx context.Context, imageName, registry string) error {
-	log.Ctx(ctx).Info().Str("image", imageName).Str("registry", registry).Msg("pushing docker image")
+// containerRuntime caches the detected container runtime
+var containerRuntime string
 
-	cmd := exec.Command("docker", "push", imageName)
+// detectContainerRuntime detects and returns the available container runtime.
+// It prefers podman over docker. Returns "podman", "docker", or panics if neither is available.
+func detectContainerRuntime() string {
+	if containerRuntime != "" {
+		return containerRuntime
+	}
+
+	// Try podman first
+	podmanCmd := exec.Command("podman", "info")
+	if err := podmanCmd.Run(); err == nil {
+		log.Info().Msg("Using podman as container runtime")
+		containerRuntime = "podman"
+		return containerRuntime
+	}
+
+	// Fall back to docker
+	dockerCmd := exec.Command("docker", "info")
+	if err := dockerCmd.Run(); err == nil {
+		log.Info().Msg("Using docker as container runtime")
+		containerRuntime = "docker"
+		return containerRuntime
+	}
+
+	log.Panic().Msg("Neither podman nor docker is available. Please install one of them.")
+	return ""
+}
+
+// pushImage 推送单个镜像
+func pushImage(ctx context.Context, runtime, imageName, registry string) error {
+	log.Ctx(ctx).Info().Str("image", imageName).Str("registry", registry).Msg("pushing container image")
+
+	cmd := exec.Command(runtime, "push", imageName)
 	cmd.Dir = "../.."
 	cmd.Env = os.Environ()
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Ctx(ctx).Error().Err(err).Str("output", string(output)).Str("image", imageName).Str("registry", registry).Msg("failed to push docker image")
+		log.Ctx(ctx).Error().Err(err).Str("output", string(output)).Str("image", imageName).Str("registry", registry).Msg("failed to push container image")
 		return err
 	}
 
-	log.Ctx(ctx).Info().Str("image", imageName).Str("registry", registry).Msg("pushed docker image successfully")
+	log.Ctx(ctx).Info().Str("image", imageName).Str("registry", registry).Msg("pushed container image successfully")
 	return nil
 }
 
@@ -36,7 +66,9 @@ func buildDocker() {
 
 	ctx := context.Background()
 	ctx = log.Logger.WithContext(ctx)
-	log.Ctx(ctx).Info().Msg("build docker")
+	log.Ctx(ctx).Info().Msg("build container image")
+
+	runtime := detectContainerRuntime()
 
 	// 获取构建信息
 	buildInfo, err := goutils.GetBuildInfo(ctx)
@@ -84,8 +116,8 @@ func buildDocker() {
 			tag := "117503445/sshole-" + component.name + ":" + gitCommit + dirtySuffix
 			aliyunTag := "registry.cn-hangzhou.aliyuncs.com/117503445/sshole-" + component.name + ":" + gitCommit + dirtySuffix
 
-			// 构建 docker 镜像
-			cmd := exec.Command("docker", "build",
+			// 构建 container 镜像
+			cmd := exec.Command(runtime, "build",
 				"-t", tag,
 				"-t", "117503445/sshole-"+component.name+":latest",
 				"-t", aliyunTag,
@@ -96,7 +128,7 @@ func buildDocker() {
 
 			log.Ctx(ctx).Info().Str("component", component.name).Str("tag", tag).Str("aliyunTag", aliyunTag).Bool("dirty", buildInfo.GitDirty).
 				Str("command", cmd.String()).
-				Msg("building docker image")
+				Msg("building container image")
 
 			output, err := cmd.CombinedOutput()
 			if err != nil {
@@ -108,7 +140,7 @@ func buildDocker() {
 				return
 			}
 
-			log.Ctx(ctx).Info().Str("component", component.name).Str("tag", tag).Msg("docker image built successfully")
+			log.Ctx(ctx).Info().Str("component", component.name).Str("tag", tag).Msg("container image built successfully")
 		}(component)
 	}
 
@@ -121,11 +153,11 @@ func buildDocker() {
 		return
 	}
 
-	log.Ctx(ctx).Info().Msg("all docker images built successfully")
+	log.Ctx(ctx).Info().Msg("all container images built successfully")
 
 	// 如果需要推送
 	if cli.BuildDocker.Push {
-		log.Ctx(ctx).Info().Msg("pushing docker images")
+		log.Ctx(ctx).Info().Msg("pushing container images")
 
 		// 定义要推送的镜像列表
 		var images []struct {
@@ -166,7 +198,7 @@ func buildDocker() {
 			pushWg.Add(1)
 			go func(imageName, registry string) {
 				defer pushWg.Done()
-				if err := pushImage(ctx, imageName, registry); err != nil {
+				if err := pushImage(ctx, runtime, imageName, registry); err != nil {
 					pushErrMu.Lock()
 					if pushFirstErr == nil {
 						pushFirstErr = err
@@ -185,8 +217,8 @@ func buildDocker() {
 			return
 		}
 
-		log.Ctx(ctx).Info().Msg("all docker images pushed successfully")
+		log.Ctx(ctx).Info().Msg("all container images pushed successfully")
 	}
 
-	log.Ctx(ctx).Info().Bool("push", cli.BuildDocker.Push).Msg("docker build completed")
+	log.Ctx(ctx).Info().Bool("push", cli.BuildDocker.Push).Msg("container build completed")
 }

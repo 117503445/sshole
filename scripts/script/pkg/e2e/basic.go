@@ -15,16 +15,18 @@ import (
 func runBasicTest(ctx context.Context, params caseParams) {
 	log.Info().Msg("Starting basic E2E test...")
 
-	// Check if Docker images exist
+	runtime := detectContainerRuntime()
+
+	// Check if container images exist
 	checkDockerImages([]string{
 		"117503445/sshole-hub",
 		"117503445/sshole-agent",
 		"117503445/sshole-entry",
 	})
 
-	// Create a Docker network for the containers to communicate
-	log.Info().Msg("Creating Docker network...")
-	networkCmd := exec.Command("docker", "network", "create", "sshole-test")
+	// Create a container network for the containers to communicate
+	log.Info().Msg("Creating container network...")
+	networkCmd := exec.Command(runtime, "network", "create", "sshole-test")
 	networkCmd.Stdout = os.Stdout
 	networkCmd.Stderr = os.Stderr
 	if err := networkCmd.Run(); err != nil {
@@ -33,7 +35,7 @@ func runBasicTest(ctx context.Context, params caseParams) {
 
 	// Start hub container
 	log.Info().Msg("Starting hub container...")
-	hubCmd := exec.Command("docker", "run", "--name", "hub", "--rm", "--network", "sshole-test", "-v", params.MappingFile+":/tmp/port_mapping.json", "-e", "MAPPING_FILE=/tmp/port_mapping.json", "117503445/sshole-hub")
+	hubCmd := exec.Command(runtime, "run", "--name", "hub", "--rm", "--network", "sshole-test", "-v", params.MappingFile+":/tmp/port_mapping.json", "-e", "MAPPING_FILE=/tmp/port_mapping.json", "117503445/sshole-hub")
 	hubCmd.Stdout = os.Stdout
 	hubCmd.Stderr = os.Stderr
 
@@ -47,7 +49,7 @@ func runBasicTest(ctx context.Context, params caseParams) {
 
 	// Start agent container
 	log.Info().Msg("Starting agent container...")
-	agentCmd := exec.Command("docker", "run", "-e", "NAME=test-agent", "--name", "agent", "--rm", "--network", "sshole-test", "117503445/sshole-agent", "--hub-server", "http://hub:9000")
+	agentCmd := exec.Command(runtime, "run", "-e", "NAME=test-agent", "--name", "agent", "--rm", "--network", "sshole-test", "117503445/sshole-agent", "--hub-server", "http://hub:9000")
 	agentCmd.Stdout = os.Stdout
 	agentCmd.Stderr = os.Stderr
 
@@ -61,7 +63,7 @@ func runBasicTest(ctx context.Context, params caseParams) {
 
 	// Start entry container
 	log.Info().Msg("Starting entry container...")
-	entryCmd := exec.Command("docker", "run", "--name", "entry", "--rm", "-p", "22222:22222", "--network", "sshole-test", "-v", params.PublicKeyPath+":/tmp/public_key.pub", "-v", params.PrivateKeyPath+":/tmp/private_key", "-e", "AGENT_NAME=test-agent", "-e", "PUBLIC_KEY=/tmp/public_key.pub", "-e", "PRIVATE_KEY=/tmp/private_key", "117503445/sshole-entry", "--hub-server", "http://hub:9000")
+	entryCmd := exec.Command(runtime, "run", "--name", "entry", "--rm", "-p", "22222:22222", "--network", "sshole-test", "-v", params.PublicKeyPath+":/tmp/public_key.pub", "-v", params.PrivateKeyPath+":/tmp/private_key", "-e", "AGENT_NAME=test-agent", "-e", "PUBLIC_KEY=/tmp/public_key.pub", "-e", "PRIVATE_KEY=/tmp/private_key", "117503445/sshole-entry", "--hub-server", "http://hub:9000")
 	entryCmd.Stdout = os.Stdout
 	entryCmd.Stderr = os.Stderr
 
@@ -83,24 +85,24 @@ func runBasicTest(ctx context.Context, params caseParams) {
 
 	// Stop containers (they will be automatically removed due to --rm flag)
 	log.Info().Msg("Stopping containers...")
-	stopHubCmd := exec.Command("docker", "stop", "hub")
+	stopHubCmd := exec.Command(runtime, "stop", "hub")
 	if err := stopHubCmd.Run(); err != nil {
 		log.Warn().Err(err).Msg("Failed to stop hub container")
 	}
 
-	stopAgentCmd := exec.Command("docker", "stop", "agent")
+	stopAgentCmd := exec.Command(runtime, "stop", "agent")
 	if err := stopAgentCmd.Run(); err != nil {
 		log.Warn().Err(err).Msg("Failed to stop agent container")
 	}
 
-	stopEntryCmd := exec.Command("docker", "stop", "entry")
+	stopEntryCmd := exec.Command(runtime, "stop", "entry")
 	if err := stopEntryCmd.Run(); err != nil {
 		log.Warn().Err(err).Msg("Failed to stop entry container")
 	}
 
 	// Clean up network
 	log.Info().Msg("Cleaning up network...")
-	cleanupCmd := exec.Command("docker", "network", "rm", "sshole-test")
+	cleanupCmd := exec.Command(runtime, "network", "rm", "sshole-test")
 	if err := cleanupCmd.Run(); err != nil {
 		log.Warn().Err(err).Msg("Failed to remove network")
 	}

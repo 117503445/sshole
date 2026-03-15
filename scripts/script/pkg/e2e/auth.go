@@ -13,16 +13,18 @@ import (
 func runAuthTest(ctx context.Context, params caseParams) {
 	log.Info().Msg("Starting auth E2E test...")
 
-	// Check if Docker images exist
+	runtime := detectContainerRuntime()
+
+	// Check if container images exist
 	checkDockerImages([]string{
 		"117503445/sshole-hub",
 		"117503445/sshole-agent",
 		"117503445/sshole-entry",
 	})
 
-	// Create a Docker network for the containers to communicate
-	log.Info().Msg("Creating Docker network...")
-	networkCmd := exec.Command("docker", "network", "create", "sshole-auth-test")
+	// Create a container network for the containers to communicate
+	log.Info().Msg("Creating container network...")
+	networkCmd := exec.Command(runtime, "network", "create", "sshole-auth-test")
 	networkCmd.Stdout = os.Stdout
 	networkCmd.Stderr = os.Stderr
 	if err := networkCmd.Run(); err != nil {
@@ -31,7 +33,7 @@ func runAuthTest(ctx context.Context, params caseParams) {
 
 	// Start hub container with auth
 	log.Info().Msg("Starting hub container with auth...")
-	hubCmd := exec.Command("docker", "run", "--name", "hub-auth", "--rm", "--network", "sshole-auth-test", "-v", params.MappingFile+":/tmp/port_mapping.json", "-e", "AUTH=123456", "-e", "MAPPING_FILE=/tmp/port_mapping.json", "117503445/sshole-hub")
+	hubCmd := exec.Command(runtime, "run", "--name", "hub-auth", "--rm", "--network", "sshole-auth-test", "-v", params.MappingFile+":/tmp/port_mapping.json", "-e", "AUTH=123456", "-e", "MAPPING_FILE=/tmp/port_mapping.json", "117503445/sshole-hub")
 	hubCmd.Stdout = os.Stdout
 	hubCmd.Stderr = os.Stderr
 
@@ -45,7 +47,7 @@ func runAuthTest(ctx context.Context, params caseParams) {
 
 	// Start agent container with auth
 	log.Info().Msg("Starting agent container with auth...")
-	agentCmd := exec.Command("docker", "run", "-e", "AUTH=123456", "-e", "NAME=test-agent-auth", "--name", "agent-auth", "--rm", "--network", "sshole-auth-test", "117503445/sshole-agent", "--hub-server", "http://hub-auth:9000")
+	agentCmd := exec.Command(runtime, "run", "-e", "AUTH=123456", "-e", "NAME=test-agent-auth", "--name", "agent-auth", "--rm", "--network", "sshole-auth-test", "117503445/sshole-agent", "--hub-server", "http://hub-auth:9000")
 	agentCmd.Stdout = os.Stdout
 	agentCmd.Stderr = os.Stderr
 
@@ -59,7 +61,7 @@ func runAuthTest(ctx context.Context, params caseParams) {
 
 	// Start entry container with auth
 	log.Info().Msg("Starting entry container with auth...")
-	entryCmd := exec.Command("docker", "run", "--name", "entry-auth", "--rm", "--network", "sshole-auth-test", "-v", params.PublicKeyPath+":/tmp/public_key.pub", "-e", "AUTH=123456", "-e", "AGENT_NAME=test-agent-auth", "-e", "PUBLIC_KEY=/tmp/public_key.pub", "117503445/sshole-entry", "--hub-server", "http://hub-auth:9000")
+	entryCmd := exec.Command(runtime, "run", "--name", "entry-auth", "--rm", "--network", "sshole-auth-test", "-v", params.PublicKeyPath+":/tmp/public_key.pub", "-e", "AUTH=123456", "-e", "AGENT_NAME=test-agent-auth", "-e", "PUBLIC_KEY=/tmp/public_key.pub", "117503445/sshole-entry", "--hub-server", "http://hub-auth:9000")
 	entryCmd.Stdout = os.Stdout
 	entryCmd.Stderr = os.Stderr
 
@@ -73,24 +75,24 @@ func runAuthTest(ctx context.Context, params caseParams) {
 
 	// Stop containers (they will be automatically removed due to --rm flag)
 	log.Info().Msg("Stopping containers...")
-	stopHubCmd := exec.Command("docker", "stop", "hub-auth")
+	stopHubCmd := exec.Command(runtime, "stop", "hub-auth")
 	if err := stopHubCmd.Run(); err != nil {
 		log.Warn().Err(err).Msg("Failed to stop hub container")
 	}
 
-	stopAgentCmd := exec.Command("docker", "stop", "agent-auth")
+	stopAgentCmd := exec.Command(runtime, "stop", "agent-auth")
 	if err := stopAgentCmd.Run(); err != nil {
 		log.Warn().Err(err).Msg("Failed to stop agent container")
 	}
 
-	stopEntryCmd := exec.Command("docker", "stop", "entry-auth")
+	stopEntryCmd := exec.Command(runtime, "stop", "entry-auth")
 	if err := stopEntryCmd.Run(); err != nil {
 		log.Warn().Err(err).Msg("Failed to stop entry container")
 	}
 
 	// Clean up network
 	log.Info().Msg("Cleaning up network...")
-	cleanupCmd := exec.Command("docker", "network", "rm", "sshole-auth-test")
+	cleanupCmd := exec.Command(runtime, "network", "rm", "sshole-auth-test")
 	if err := cleanupCmd.Run(); err != nil {
 		log.Warn().Err(err).Msg("Failed to remove network")
 	}
