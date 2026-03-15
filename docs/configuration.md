@@ -12,11 +12,11 @@
 
 | 参数 | 环境变量 | 类型 | 默认值 | 说明 |
 |------|----------|------|--------|------|
-| `--auth-token` | `AUTH` | string | - | 认证 Token（必填） |
-| `--http-addr` | `HTTP_ADDR` | string | `:9000` | HTTP 服务监听地址 |
-| `--mapping-file` | `MAPPING_FILE` | string | `data/port_mapping.json` | 端口映射持久化文件路径 |
-| `--pending-timeout` | `PENDING_TIMEOUT` | duration | `10s` | 等待隧道建立的超时时间 |
-| `--tunnel-dial-timeout` | `TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
+| `--auth-token` | `SSHOLE_HUB_AUTH` | string | - | 认证 Token（必填） |
+| `--http-addr` | `SSHOLE_HUB_HTTP_ADDR` | string | `:9000` | HTTP 服务监听地址 |
+| `--mapping-file` | `SSHOLE_HUB_MAPPING_FILE` | string | `data/port_mapping.json` | 端口映射持久化文件路径 |
+| `--pending-timeout` | `SSHOLE_HUB_PENDING_TIMEOUT` | duration | `10s` | 等待隧道建立的超时时间 |
+| `--tunnel-dial-timeout` | `SSHOLE_HUB_TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
 
 ### 示例
 
@@ -140,15 +140,15 @@ Entry 启动时会：
 
 ```yaml
 environment:
-  - AUTH_TOKEN=my-secret-token
+  - SSHOLE_HUB_AUTH=my-secret-token
 ```
 
 ### Agent
 
 ```yaml
 environment:
-  - HUB_SERVER=ws://hub:9000
-  - AUTH=my-secret-token
+  - SSHOLE_AGENT_HUB_SERVER=ws://hub:9000
+  - SSHOLE_AGENT_AUTH=my-secret-token
 ```
 
 ## 安全建议

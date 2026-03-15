@@ -13,12 +13,12 @@ import (
 )
 
 var cli struct {
-	HubServer  string `env:"HUB_SERVER"`
-	Auth       string `env:"AUTH"`
-	AgentName  string `env:"AGENT_NAME"`
-	EntryPort  int    `env:"ENTRY_PORT" default:"22222"`
-	PublicKey  string `env:"PUBLIC_KEY" default:"~/.ssh/id_ed25519.pub"`
-	PrivateKey string `env:"PRIVATE_KEY" default:"~/.ssh/id_ed25519"`
+	HubServer  string `env:"SSHOLE_ENTRY_HUB_SERVER"`
+	Auth       string `env:"SSHOLE_ENTRY_AUTH"`
+	AgentName  string `env:"SSHOLE_ENTRY_AGENT_NAME"`
+	EntryPort  int    `env:"SSHOLE_ENTRY_PORT" default:"22222"`
+	PublicKey  string `env:"SSHOLE_ENTRY_PUBLIC_KEY" default:"~/.ssh/id_ed25519.pub"`
+	PrivateKey string `env:"SSHOLE_ENTRY_PRIVATE_KEY" default:"~/.ssh/id_ed25519"`
 }
 
 func init() {

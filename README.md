@@ -31,12 +31,12 @@
 
 | 参数 | 环境变量 | 类型 | 默认值 | 说明 |
 |------|----------|------|--------|------|
-| `--hub-server` | `HUB_SERVER` | string | - | Hub 服务器地址（必填） |
-| `--auth` | `AUTH` | string | - | 认证 Token（必填） |
-| `--name` | `NAME` | string | hostname | Agent 名称 |
-| `--local-port` | `LOCAL_PORT` | int | `22222` | 本地 SSHD 监听端口 |
-| `--skip-sshd` | `SKIP_SSHD` | bool | `false` | 跳过启动内置 SSHD |
-| `--tunnel-dial` | `TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
+| `--hub-server` | `SSHOLE_AGENT_HUB_SERVER` | string | - | Hub 服务器地址（必填） |
+| `--auth` | `SSHOLE_AGENT_AUTH` | string | - | 认证 Token（必填） |
+| `--name` | `SSHOLE_AGENT_NAME` | string | hostname | Agent 名称 |
+| `--local-port` | `SSHOLE_AGENT_LOCAL_PORT` | int | `22222` | 本地 SSHD 监听端口 |
+| `--skip-sshd` | `SSHOLE_AGENT_SKIP_SSHD` | bool | `false` | 跳过启动内置 SSHD |
+| `--tunnel-dial` | `SSHOLE_AGENT_TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
 
 ### Hub
 
@@ -55,11 +55,11 @@
 
 | 参数 | 环境变量 | 类型 | 默认值 | 说明 |
 |------|----------|------|--------|------|
-| `--auth-token` | `AUTH` | string | - | 认证 Token（必填） |
-| `--http-addr` | `HTTP_ADDR` | string | `:9000` | HTTP 服务监听地址 |
-| `--mapping-file` | `MAPPING_FILE` | string | `data/port_mapping.json` | 端口映射持久化文件路径 |
-| `--pending` | `PENDING_TIMEOUT` | duration | `10s` | 等待隧道建立的超时时间 |
-| `--tunnel-dial` | `TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
+| `--auth-token` | `SSHOLE_HUB_AUTH` | string | - | 认证 Token（必填） |
+| `--http-addr` | `SSHOLE_HUB_HTTP_ADDR` | string | `:9000` | HTTP 服务监听地址 |
+| `--mapping-file` | `SSHOLE_HUB_MAPPING_FILE` | string | `data/port_mapping.json` | 端口映射持久化文件路径 |
+| `--pending` | `SSHOLE_HUB_PENDING_TIMEOUT` | duration | `10s` | 等待隧道建立的超时时间 |
+| `--tunnel-dial` | `SSHOLE_HUB_TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
 
 ### Entry
 
@@ -80,12 +80,12 @@
 
 | 参数 | 环境变量 | 类型 | 默认值 | 说明 |
 |------|----------|------|--------|------|
-| `--hub-server` | `HUB_SERVER` | string | - | Hub 服务器地址（必填） |
-| `--auth` | `AUTH` | string | - | 认证 Token（必填） |
-| `--agent-name` | `AGENT_NAME` | string | - | 目标 Agent 名称（必填） |
-| `--entry-port` | `ENTRY_PORT` | int | `22222` | 本地监听端口 |
-| `--public-key` | `PUBLIC_KEY` | string | `~/.ssh/id_ed25519.pub` | SSH 公钥路径 |
-| `--private-key` | `PRIVATE_KEY` | string | `~/.ssh/id_ed25519` | SSH 私钥路径 |
+| `--hub-server` | `SSHOLE_ENTRY_HUB_SERVER` | string | - | Hub 服务器地址（必填） |
+| `--auth` | `SSHOLE_ENTRY_AUTH` | string | - | 认证 Token（必填） |
+| `--agent-name` | `SSHOLE_ENTRY_AGENT_NAME` | string | - | 目标 Agent 名称（必填） |
+| `--entry-port` | `SSHOLE_ENTRY_PORT` | int | `22222` | 本地监听端口 |
+| `--public-key` | `SSHOLE_ENTRY_PUBLIC_KEY` | string | `~/.ssh/id_ed25519.pub` | SSH 公钥路径 |
+| `--private-key` | `SSHOLE_ENTRY_PRIVATE_KEY` | string | `~/.ssh/id_ed25519` | SSH 私钥路径 |
 
 ## 示例
 

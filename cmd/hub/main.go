@@ -14,11 +14,11 @@ import (
 )
 
 var cli struct {
-	AuthToken   string        `env:"AUTH"`
-	HTTPAddr    string        `env:"HTTP_ADDR" default:":9000"`
-	MappingFile string        `env:"MAPPING_FILE" default:"data/port_mapping.json"`
-	Pending     time.Duration `env:"PENDING_TIMEOUT" default:"10s"`
-	TunnelDial  time.Duration `env:"TUNNEL_DIAL_TIMEOUT" default:"5s"`
+	AuthToken   string        `env:"SSHOLE_HUB_AUTH"`
+	HTTPAddr    string        `env:"SSHOLE_HUB_HTTP_ADDR" default:":9000"`
+	MappingFile string        `env:"SSHOLE_HUB_MAPPING_FILE" default:"data/port_mapping.json"`
+	Pending     time.Duration `env:"SSHOLE_HUB_PENDING_TIMEOUT" default:"10s"`
+	TunnelDial  time.Duration `env:"SSHOLE_HUB_TUNNEL_DIAL_TIMEOUT" default:"5s"`
 }
 
 func init() {
