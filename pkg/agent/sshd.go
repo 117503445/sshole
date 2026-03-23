@@ -27,17 +27,13 @@ func (a *Agent) ensureSSHD(ctx context.Context, port int) (func(), error) {
 		// HostKeyBuiltin: true,
 	}
 
-	// Only enable public key auth if authorized_keys file has content
+	// Force public key authentication
 	authorizedKeysPath, err := ensureAuthorizedKeysFile()
 	if err != nil {
 		return nil, fmt.Errorf("ensure authorized_keys: %w", err)
 	}
-	if hasContent(authorizedKeysPath) {
-		cfg.AuthorizedKeysFiles = authorizedKeysPath
-		log.Info().Str("path", authorizedKeysPath).Msg("using authorized_keys for authentication")
-	} else {
-		log.Info().Msg("no authorized_keys found, running without authentication")
-	}
+	cfg.AuthorizedKeysFiles = authorizedKeysPath
+	log.Info().Str("path", authorizedKeysPath).Msg("using authorized_keys for authentication")
 
 	server, err := sshlib.NewServer(ctx, cfg)
 	if err != nil {
@@ -83,14 +79,6 @@ func isPortListening(port int) bool {
 	}
 	conn.Close()
 	return true
-}
-
-func hasContent(path string) bool {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return false
-	}
-	return len(strings.TrimSpace(string(data))) > 0
 }
 
 func userHomeDir() string {
