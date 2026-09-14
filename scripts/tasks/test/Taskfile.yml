@@ -1,6 +1,11 @@
 version: 3
 
 tasks:
+  unit:
+    desc: "单元测试"
+    cmds:
+      - go vet ./...
+      - go test ./... -race -count=1 -timeout 300s
   e2e:
     desc: "端到端测试"
     deps: [":base:clear", ":build:docker"]

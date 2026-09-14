@@ -2,12 +2,33 @@ on:
   push:
     branches:
       - master
+  pull_request:
 
 permissions:
   contents: write
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: 117503445/dev@sha256:c6c775812ba23bd9a2b3afa0015e66d3acec3230d210f37945b9f26235d6f0db
+      env:
+        GOPROXY: direct
+      options: --privileged --user root
+    steps:
+      - name: test
+        run: |
+          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git /workspace
+          cd /workspace
+          git checkout ${{ github.sha }}
+          go vet ./...
+          go test ./... -race -count=1 -timeout 300s
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   master:
+    needs: test
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     container:
       image: 117503445/dev@sha256:c6c775812ba23bd9a2b3afa0015e66d3acec3230d210f37945b9f26235d6f0db
