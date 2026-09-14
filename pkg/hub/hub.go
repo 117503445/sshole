@@ -269,16 +269,10 @@ func (h *Hub) bindTunnel(sessionID string, ws *websocket.Conn) (*PendingSession,
 	p.Tunnel = ws
 	p.State = PendingBOUND
 
-	// For entry-initiated sessions, don't start forwarding here - let waitForAgentAndForward handle it
-	if p.EntryWS == nil {
-		// SSH-initiated session: start forwarding between SSH conn and tunnel
-		log.Info().Str("session", sessionID).Msg("SSH-initiated session: starting forwarding between SSH and tunnel")
-		h.startForwarding(p)
-	} else {
-		log.Info().Str("session", sessionID).Msg("entry-initiated session: agent tunnel bound, will forward entry<->agent")
-		// For entry-initiated sessions, the waitForAgentAndForward goroutine will handle forwarding
-	}
-
+	// 转发不在这里启动：SSH 发起的会话由调用方在校验 agentName 之后调用
+	// startForwarding，entry 发起的会话由 waitForAgentAndForward 负责。
+	// 若在此处再启一次，同一个 tunnel websocket 会被两组 goroutine 并发读写，
+	// 导致连接刚建立就被关闭（SSH 客户端表现为 banner 阶段 Connection closed）。
 	return p, nil
 }
 
