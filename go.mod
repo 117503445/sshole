@@ -12,6 +12,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	golang.org/x/crypto v0.48.0
 	golang.org/x/net v0.49.0
+	golang.org/x/sys v0.41.0
 	google.golang.org/protobuf v1.36.9
 )
 
@@ -22,6 +23,5 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
-	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 )

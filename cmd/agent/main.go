@@ -42,6 +42,13 @@ func main() {
 		Str("BuildDir", buildinfo.BuildDir).
 		Msg("build info")
 
+	// 单实例锁：一台机器只允许一个 agent 进程，重复安装时直接退出
+	release, err := agent.AcquireInstanceLock()
+	if err != nil {
+		log.Fatal().Err(err).Msg("acquire instance lock failed")
+	}
+	defer release()
+
 	if cli.HubServer == "" {
 		log.Panic().Msg("HUB_SERVER is required")
 	}
