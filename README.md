@@ -60,7 +60,6 @@
 | `--mapping-file` | `SSHOLE_HUB_MAPPING_FILE` | string | `data/port_mapping.json` | 端口映射持久化文件路径 |
 | `--pending` | `SSHOLE_HUB_PENDING_TIMEOUT` | duration | `10s` | 等待隧道建立的超时时间 |
 | `--tunnel-dial` | `SSHOLE_HUB_TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
-| `--bin-dir` | `SSHOLE_HUB_BIN_DIR` | string | - | 二进制分发目录，配置后在 `/bins/` 提供只读下载 |
 
 #### 二进制分发
 
@@ -72,7 +71,6 @@ curl -fsSL https://hub.example.com/bins/sshole_agent-linux-amd64 -o agent.bin &&
 ```
 
 `/bins/` 无需认证（二进制与 GitHub Release 公开内容一致），但不会暴露 Auth Token。
-如需分发其他平台或自定义文件，可配置 `--bin-dir` 改为分发指定目录（优先级高于内嵌产物）。
 
 ### Entry
 

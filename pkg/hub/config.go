@@ -14,9 +14,6 @@ type HubConfig struct {
 	MappingFile       string
 	PendingTimeout    time.Duration
 	TunnelDialTimeout time.Duration
-	// BinDir, when set, is served read-only under /bins/ for binary distribution.
-	// Takes precedence over BinsFS.
-	BinDir string
 	// BinsFS holds entry/agent binaries embedded at build time (CI only).
 	BinsFS fs.FS
 }
