@@ -68,6 +68,7 @@ Release 构建的 hub 已内嵌 `sshole_agent-linux-amd64` 与 `sshole_entry-lin
 
 ```bash
 curl -fsSL https://hub.example.com/bins/sshole_agent-linux-amd64 -o agent.bin && chmod +x agent.bin
+# macOS (Apple Silicon) 用 sshole_agent-darwin-arm64；entry 同理
 ```
 
 `/bins/` 无需认证（二进制与 GitHub Release 公开内容一致），但不会暴露 Auth Token。

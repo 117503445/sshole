@@ -40,31 +40,43 @@ func build() {
 
 	// 第一阶段：并行构建 agent / entry（供 hub 内嵌）
 	phase1 := []struct {
-		name string
-		path string
-		out  string
+		name   string
+		path   string
+		out    string
+		goos   string
+		goarch string
 	}{
-		{"agent", "./cmd/agent", "./data/agent/sshole_agent"},
-		{"entry", "./cmd/entry", "./data/entry/sshole_entry"},
+		// linux/amd64 无后缀产物同时供 agent.Dockerfile / entry.Dockerfile 使用
+		{"agent-linux-amd64", "./cmd/agent", "./data/agent/sshole_agent", "linux", "amd64"},
+		{"agent-darwin-arm64", "./cmd/agent", "./data/agent/sshole_agent-darwin-arm64", "darwin", "arm64"},
+		{"entry-linux-amd64", "./cmd/entry", "./data/entry/sshole_entry", "linux", "amd64"},
+		{"entry-darwin-arm64", "./cmd/entry", "./data/entry/sshole_entry-darwin-arm64", "darwin", "arm64"},
 	}
 	var wg sync.WaitGroup
 	for _, b := range phase1 {
 		wg.Add(1)
 		go func(b struct {
-			name string
-			path string
-			out  string
+			name   string
+			path   string
+			out    string
+			goos   string
+			goarch string
 		}) {
 			defer wg.Done()
-			if err := buildOne(ctx, buildInfo, "build-"+b.name, b.path, b.out, "linux", "amd64"); err != nil {
+			if err := buildOne(ctx, buildInfo, "build-"+b.name, b.path, b.out, b.goos, b.goarch); err != nil {
 				log.Ctx(ctx).Panic().Err(err).Msg("failed to build")
 			}
 		}(b)
 	}
 	wg.Wait()
 
-	// 注入 hub 内嵌目录
-	if err := embedBins("../../data/agent/sshole_agent", "../../data/entry/sshole_entry"); err != nil {
+	// 注入 hub 内嵌目录（agent/entry 的 linux-amd64 与 darwin-arm64）
+	if err := embedBins(
+		"../../data/agent/sshole_agent",
+		"../../data/agent/sshole_agent-darwin-arm64",
+		"../../data/entry/sshole_entry",
+		"../../data/entry/sshole_entry-darwin-arm64",
+	); err != nil {
 		log.Ctx(ctx).Panic().Err(err).Msg("failed to embed bins")
 	}
 	log.Ctx(ctx).Info().Msg("embedded agent/entry into hub bins")

@@ -81,7 +81,8 @@ func embedBins(srcs ...string) error {
 		if !strings.HasPrefix(name, "sshole_") {
 			name = "sshole_" + name
 		}
-		if !strings.Contains(name, "-linux-") {
+		// 无平台后缀的产物（data/agent/sshole_agent）默认是 linux-amd64
+		if !strings.Contains(name, "-linux-") && !strings.Contains(name, "-darwin-") && !strings.Contains(name, "-windows-") {
 			name += "-linux-amd64"
 		}
 		dst := filepath.Join(hubBinsDir, name)

@@ -67,18 +67,27 @@ func release() {
 		}(target)
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := buildOne(ctx, buildInfo, "release-sshole_agent-linux-amd64", "./cmd/agent", "./data/release/sshole_agent-linux-amd64", "linux", "amd64"); err != nil {
-			log.Ctx(ctx).Panic().Err(err).Msg("failed to build release binary for agent")
-		}
-	}()
+	for _, target := range []struct{ os, arch string }{{"linux", "amd64"}, {"darwin", "arm64"}} {
+		wg.Add(1)
+		go func(target struct{ os, arch string }) {
+			defer wg.Done()
+			outFile := fmt.Sprintf("./data/release/sshole_agent-%s-%s", target.os, target.arch)
+			reqID := fmt.Sprintf("release-agent-%s-%s", target.os, target.arch)
+			if err := buildOne(ctx, buildInfo, reqID, "./cmd/agent", outFile, target.os, target.arch); err != nil {
+				log.Ctx(ctx).Panic().Err(err).Msg("failed to build release binary for agent")
+			}
+		}(target)
+	}
 
 	wg.Wait()
 
-	// 注入 hub 内嵌目录（entry / agent 的 linux-amd64）
-	if err := embedBins("../../data/release/sshole_agent-linux-amd64", "../../data/release/sshole_entry-linux-amd64"); err != nil {
+	// 注入 hub 内嵌目录（entry / agent 的 linux-amd64 与 darwin-arm64）
+	if err := embedBins(
+		"../../data/release/sshole_agent-linux-amd64",
+		"../../data/release/sshole_agent-darwin-arm64",
+		"../../data/release/sshole_entry-linux-amd64",
+		"../../data/release/sshole_entry-darwin-arm64",
+	); err != nil {
 		log.Ctx(ctx).Panic().Err(err).Msg("failed to embed bins")
 	}
 	log.Ctx(ctx).Info().Msg("embedded agent/entry into hub bins")
