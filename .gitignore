@@ -50,3 +50,7 @@ data
 /agent
 .cache
 /scripts/script/script
+
+# CI 构建时注入的内嵌二进制
+/cmd/hub/bins/*
+!/cmd/hub/bins/.gitkeep

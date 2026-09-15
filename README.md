@@ -64,7 +64,14 @@
 
 #### 二进制分发
 
-配置 `--bin-dir` 后，Hub 同时作为文件服务器，在 `/bins/` 下以只读方式提供该目录内容（含目录列表），
+Release 构建的 hub 已内嵌 `sshole_agent-linux-amd64` 与 `sshole_entry-linux-amd64`，
+开箱即可通过 `/bins/` 下载（无需任何配置）：
+
+```bash
+curl -fsSL https://hub.example.com/bins/sshole_agent-linux-amd64 -o agent.bin && chmod +x agent.bin
+```
+
+也可配置 `--bin-dir` 让 Hub 以只读方式分发自定义目录（优先级高于内嵌产物，含目录列表），
 方便在没有 GitHub 访问的环境直接拉取 entry / agent：
 
 ```bash

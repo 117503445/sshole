@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"connectrpc.com/connect"
@@ -47,11 +49,29 @@ func startTestHub(t *testing.T, agents map[string]int) (*Hub, string) {
 // startTestHubTimeout is startTestHub with a configurable pending timeout.
 func startTestHubTimeout(t *testing.T, agents map[string]int, pendingTimeout time.Duration) (*Hub, string) {
 	t.Helper()
-	return startTestHubFull(t, agents, pendingTimeout, "")
+	return startTestHubEx(t, agents, pendingTimeout, "", nil)
 }
 
 // startTestHubFull is startTestHub with configurable pending timeout and bin dir.
 func startTestHubFull(t *testing.T, agents map[string]int, pendingTimeout time.Duration, binDir string) (*Hub, string) {
+	t.Helper()
+	return startTestHubEx(t, agents, pendingTimeout, binDir, nil)
+}
+
+// startTestHubWithFS starts a hub serving only embedded binaries.
+func startTestHubWithFS(t *testing.T, binsFS fs.FS) (*Hub, string) {
+	t.Helper()
+	return startTestHubDirAndFS(t, "", binsFS)
+}
+
+// startTestHubDirAndFS is the most flexible variant: BinDir + embedded FS.
+func startTestHubDirAndFS(t *testing.T, binDir string, binsFS fs.FS) (*Hub, string) {
+	t.Helper()
+	return startTestHubEx(t, nil, 5*time.Second, binDir, binsFS)
+}
+
+// startTestHubEx wires every knob of HubConfig used by tests.
+func startTestHubEx(t *testing.T, agents map[string]int, pendingTimeout time.Duration, binDir string, binsFS fs.FS) (*Hub, string) {
 	t.Helper()
 	mappingFile := filepath.Join(t.TempDir(), "port_mapping.json")
 	if agents != nil {
@@ -66,6 +86,7 @@ func startTestHubFull(t *testing.T, agents map[string]int, pendingTimeout time.D
 		MappingFile:    mappingFile,
 		PendingTimeout: pendingTimeout,
 		BinDir:         binDir,
+		BinsFS:         binsFS,
 	})
 	if err != nil {
 		t.Fatalf("NewHub: %v", err)
@@ -629,5 +650,68 @@ func TestBinDownloadDisabled(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", resp.StatusCode)
+	}
+}
+
+func TestEmbeddedBinNames(t *testing.T) {
+	if got := embeddedBinNames(nil); got != nil {
+		t.Fatalf("nil fs: %v", got)
+	}
+	empty := fstest.MapFS{".gitkeep": &fstest.MapFile{Data: []byte("")}}
+	if got := embeddedBinNames(empty); len(got) != 0 {
+		t.Fatalf("placeholder-only fs: %v", got)
+	}
+	full := fstest.MapFS{
+		".gitkeep":                 &fstest.MapFile{Data: []byte("")},
+		"sshole_agent-linux-amd64": &fstest.MapFile{Data: []byte("agent")},
+		"sshole_entry-linux-amd64": &fstest.MapFile{Data: []byte("entry")},
+	}
+	got := embeddedBinNames(full)
+	if len(got) != 2 {
+		t.Fatalf("embeddedBinNames = %v", got)
+	}
+}
+
+// TestBinDownloadEmbeddedServing: hub serves BinsFS content when BinDir is unset.
+func TestBinDownloadEmbeddedServing(t *testing.T) {
+	hubCfg := fstest.MapFS{
+		"sshole_agent-linux-amd64": &fstest.MapFile{Data: []byte("embedded-agent")},
+	}
+	h, addr := startTestHubWithFS(t, hubCfg)
+	_ = h
+
+	resp, err := http.Get("http://" + addr + "/bins/sshole_agent-linux-amd64")
+	if err != nil {
+		t.Fatalf("get embedded: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != "embedded-agent" {
+		t.Fatalf("body = %q", body)
+	}
+}
+
+// TestBinDirTakesPrecedenceOverEmbedded: BinDir wins when both are set.
+func TestBinDirTakesPrecedenceOverEmbedded(t *testing.T) {
+	binDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(binDir, "sshole_agent-linux-amd64"), []byte("dir-agent"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	embedded := fstest.MapFS{
+		"sshole_agent-linux-amd64": &fstest.MapFile{Data: []byte("embedded-agent")},
+	}
+	_, addr := startTestHubDirAndFS(t, binDir, embedded)
+
+	resp, err := http.Get("http://" + addr + "/bins/sshole_agent-linux-amd64")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != "dir-agent" {
+		t.Fatalf("body = %q, want dir content", body)
 	}
 }

@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"io/fs"
 	"time"
 
 	"github.com/117503445/sshole/pkg/common"
@@ -14,7 +15,10 @@ type HubConfig struct {
 	PendingTimeout    time.Duration
 	TunnelDialTimeout time.Duration
 	// BinDir, when set, is served read-only under /bins/ for binary distribution.
+	// Takes precedence over BinsFS.
 	BinDir string
+	// BinsFS holds entry/agent binaries embedded at build time (CI only).
+	BinsFS fs.FS
 }
 
 func (c *HubConfig) withDefaults() HubConfig {
