@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"embed"
+	"io/fs"
 	"time"
 
 	"github.com/117503445/goutils/glog"
@@ -12,6 +14,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
+
+// bins 目录由 CI 构建脚本注入 entry/agent 二进制（见 scripts/script）。
+//
+//go:embed all:bins
+var binsEmbed embed.FS
 
 var cli struct {
 	AuthToken   string        `env:"SSHOLE_HUB_AUTH"`
@@ -41,6 +48,12 @@ func main() {
 		Str("BuildDir", buildinfo.BuildDir).
 		Msg("build info")
 
+	// 内嵌的 entry/agent 二进制（仅 CI 构建产物包含，本地开发为空占位）
+	binsFS, err := fs.Sub(binsEmbed, "bins")
+	if err != nil {
+		log.Panic().Err(err).Msg("load embedded bins failed")
+	}
+
 	cfg := hub.HubConfig{
 		AuthToken:         cli.AuthToken,
 		HTTPAddr:          cli.HTTPAddr,
@@ -48,6 +61,7 @@ func main() {
 		PendingTimeout:    cli.Pending,
 		TunnelDialTimeout: cli.TunnelDial,
 		BinDir:            cli.BinDir,
+		BinsFS:            binsFS,
 	}
 	log.Info().Interface("cfg", cfg).Msg("hub config")
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"sync"
 
 	"github.com/117503445/goutils"
@@ -39,62 +38,41 @@ func build() {
 	}
 	log.Ctx(ctx).Info().Interface("buildInfo", buildInfo).Msg("build info")
 
-	// 构建程序列表
-	builds := []struct {
+	// 第一阶段：并行构建 agent / entry（供 hub 内嵌）
+	phase1 := []struct {
 		name string
 		path string
 		out  string
 	}{
 		{"agent", "./cmd/agent", "./data/agent/sshole_agent"},
 		{"entry", "./cmd/entry", "./data/entry/sshole_entry"},
-		{"hub", "./cmd/hub", "./data/hub/sshole_hub"},
 	}
-
-	// 并行构建
 	var wg sync.WaitGroup
-
-	for _, build := range builds {
+	for _, b := range phase1 {
 		wg.Add(1)
-		go func(build struct {
+		go func(b struct {
 			name string
 			path string
 			out  string
 		}) {
 			defer wg.Done()
-
-			ctx := log.Output(glog.NewConsoleWriter(
-				glog.ConsoleWriterConfig{
-					RequestId: "build-" + build.name,
-				})).WithContext(ctx)
-
-			log.Ctx(ctx).Info().Msg("building")
-
-			ldflags := fmt.Sprintf(
-				"-X 'github.com/117503445/sshole/internal/buildinfo.BuildTime=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitBranch=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitCommit=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitTag=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitDirty=%t' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitVersion=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.BuildDir=%s'",
-				buildInfo.BuildTime, buildInfo.GitBranch, buildInfo.GitCommit,
-				buildInfo.GitTag, buildInfo.GitDirty, buildInfo.GitVersion, buildInfo.BuildDir,
-			)
-
-			cmd := exec.Command("go", "build", "-o", build.out, "-ldflags", ldflags, build.path)
-			cmd.Dir = "../.."
-			cmd.Env = os.Environ()
-			cmd.Env = append(cmd.Env, "GOOS=linux", "GOARCH=amd64", "CGO_ENABLED=0")
-			if output, err := cmd.CombinedOutput(); err != nil {
-				log.Ctx(ctx).Panic().Err(err).Str("output", string(output)).Msg("failed to build")
-				return
+			if err := buildOne(ctx, buildInfo, "build-"+b.name, b.path, b.out, "linux", "amd64"); err != nil {
+				log.Ctx(ctx).Panic().Err(err).Msg("failed to build")
 			}
-
-			log.Ctx(ctx).Info().Str("output", build.out).Msg("built successfully")
-		}(build)
+		}(b)
 	}
-
 	wg.Wait()
+
+	// 注入 hub 内嵌目录
+	if err := embedBins("../../data/agent/sshole_agent", "../../data/entry/sshole_entry"); err != nil {
+		log.Ctx(ctx).Panic().Err(err).Msg("failed to embed bins")
+	}
+	log.Ctx(ctx).Info().Msg("embedded agent/entry into hub bins")
+
+	// 第二阶段：构建 hub（内嵌 agent/entry）
+	if err := buildOne(ctx, buildInfo, "build-hub", "./cmd/hub", "./data/hub/sshole_hub", "linux", "amd64"); err != nil {
+		log.Ctx(ctx).Panic().Err(err).Msg("failed to build hub")
+	}
 
 	log.Ctx(ctx).Info().Msg("all builds completed")
 }

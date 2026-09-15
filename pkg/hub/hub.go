@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -123,6 +124,10 @@ func (h *Hub) Start(ctx context.Context) error {
 		// Read-only static file server for entry/agent binaries.
 		mux.Handle("/bins/", http.StripPrefix("/bins/", http.FileServer(http.Dir(h.cfg.BinDir))))
 		log.Info().Str("dir", h.cfg.BinDir).Msg("serving binaries under /bins/")
+	} else if names := embeddedBinNames(h.cfg.BinsFS); len(names) > 0 {
+		// CI 构建产物内嵌的 entry/agent 二进制
+		mux.Handle("/bins/", http.StripPrefix("/bins/", http.FileServerFS(h.cfg.BinsFS)))
+		log.Info().Strs("bins", names).Msg("serving embedded binaries under /bins/")
 	}
 	mux.HandleFunc("/agent", h.handleAgentWS)
 	mux.HandleFunc("/tunnel", h.handleTunnelWS)
@@ -313,6 +318,24 @@ func (h *Hub) startForwarding(p *PendingSession) {
 		}
 		cleanup()
 	}()
+}
+
+// embeddedBinNames lists real files in the embedded bins FS (ignores .gitkeep placeholder).
+func embeddedBinNames(fsys fs.FS) []string {
+	if fsys == nil {
+		return nil
+	}
+	entries, err := fs.ReadDir(fsys, ".")
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, e := range entries {
+		if !e.IsDir() && e.Name() != ".gitkeep" {
+			names = append(names, e.Name())
+		}
+	}
+	return names
 }
 
 // findAvailablePort finds an available port starting from 10000.

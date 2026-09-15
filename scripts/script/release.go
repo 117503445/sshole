@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"sync"
 
 	"github.com/117503445/goutils"
@@ -34,7 +33,7 @@ func release() {
 		os.Exit(1)
 	}
 
-	// 定义目标平台和架构
+	// 第一阶段：并行构建 entry 全平台 + agent linux/amd64（hub 内嵌依赖）
 	targets := []struct {
 		os   string
 		arch string
@@ -47,10 +46,8 @@ func release() {
 		{"windows", "arm64"},
 	}
 
-	// 并行构建
 	var wg sync.WaitGroup
 
-	// 构建 entry 二进制（所有架构）
 	for _, target := range targets {
 		wg.Add(1)
 		go func(target struct {
@@ -58,107 +55,38 @@ func release() {
 			arch string
 		}) {
 			defer wg.Done()
-
-			ctx := log.Output(glog.NewConsoleWriter(
-				glog.ConsoleWriterConfig{
-					RequestId: fmt.Sprintf("release-entry-%s-%s", target.os, target.arch),
-				})).WithContext(ctx)
-
-			log.Ctx(ctx).Info().Msg("building release binary for entry")
-
-			// 构建输出文件名
 			ext := ""
 			if target.os == "windows" {
 				ext = ".exe"
 			}
 			outFile := fmt.Sprintf("./data/release/sshole_entry-%s-%s%s", target.os, target.arch, ext)
-
-			ldflags := fmt.Sprintf(
-				"-X 'github.com/117503445/sshole/internal/buildinfo.BuildTime=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitBranch=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitCommit=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitTag=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitDirty=%t' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitVersion=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.BuildDir=%s'",
-				buildInfo.BuildTime, buildInfo.GitBranch, buildInfo.GitCommit,
-				buildInfo.GitTag, buildInfo.GitDirty, buildInfo.GitVersion, buildInfo.BuildDir,
-			)
-
-			cmd := exec.Command("go", "build", "-o", outFile, "-ldflags", ldflags, "-trimpath", "./cmd/entry")
-			cmd.Dir = "../.."
-			cmd.Env = os.Environ()
-			cmd.Env = append(cmd.Env,
-				fmt.Sprintf("GOOS=%s", target.os),
-				fmt.Sprintf("GOARCH=%s", target.arch),
-				"CGO_ENABLED=0",
-			)
-
-			if output, err := cmd.CombinedOutput(); err != nil {
-				log.Ctx(ctx).Panic().Err(err).Str("output", string(output)).Msg("failed to build release binary for entry")
-				return
+			reqID := fmt.Sprintf("release-entry-%s-%s", target.os, target.arch)
+			if err := buildOne(ctx, buildInfo, reqID, "./cmd/entry", outFile, target.os, target.arch); err != nil {
+				log.Ctx(ctx).Panic().Err(err).Msg("failed to build release binary for entry")
 			}
-
-			log.Ctx(ctx).Info().Str("output", outFile).Msg("built release binary for entry successfully")
 		}(target)
 	}
 
-	// 构建 hub 和 agent 二进制（仅 linux amd64）
-	for _, build := range []struct {
-		name string
-		path string
-	}{
-		{"sshole_hub", "./cmd/hub"},
-		{"sshole_agent", "./cmd/agent"},
-	} {
-		wg.Add(1)
-		go func(build struct {
-			name string
-			path string
-		}) {
-			defer wg.Done()
-
-			ctx := log.Output(glog.NewConsoleWriter(
-				glog.ConsoleWriterConfig{
-					RequestId: fmt.Sprintf("release-%s-linux-amd64", build.name),
-				})).WithContext(ctx)
-
-			log.Ctx(ctx).Info().Msg("building release binary")
-
-			// 构建输出文件名
-			outFile := fmt.Sprintf("./data/release/%s-linux-amd64", build.name)
-
-			ldflags := fmt.Sprintf(
-				"-X 'github.com/117503445/sshole/internal/buildinfo.BuildTime=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitBranch=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitCommit=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitTag=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitDirty=%t' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.GitVersion=%s' "+
-					"-X 'github.com/117503445/sshole/internal/buildinfo.BuildDir=%s'",
-				buildInfo.BuildTime, buildInfo.GitBranch, buildInfo.GitCommit,
-				buildInfo.GitTag, buildInfo.GitDirty, buildInfo.GitVersion, buildInfo.BuildDir,
-			)
-
-			cmd := exec.Command("go", "build", "-o", outFile, "-ldflags", ldflags, "-trimpath", build.path)
-			cmd.Dir = "../.."
-			cmd.Env = os.Environ()
-			cmd.Env = append(cmd.Env,
-				"GOOS=linux",
-				"GOARCH=amd64",
-				"CGO_ENABLED=0",
-			)
-
-			if output, err := cmd.CombinedOutput(); err != nil {
-				log.Ctx(ctx).Panic().Err(err).Str("output", string(output)).Msg("failed to build release binary")
-				return
-			}
-
-			log.Ctx(ctx).Info().Str("output", outFile).Msg("built release binary successfully")
-		}(build)
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := buildOne(ctx, buildInfo, "release-sshole_agent-linux-amd64", "./cmd/agent", "./data/release/sshole_agent-linux-amd64", "linux", "amd64"); err != nil {
+			log.Ctx(ctx).Panic().Err(err).Msg("failed to build release binary for agent")
+		}
+	}()
 
 	wg.Wait()
+
+	// 注入 hub 内嵌目录（entry / agent 的 linux-amd64）
+	if err := embedBins("../../data/release/sshole_agent-linux-amd64", "../../data/release/sshole_entry-linux-amd64"); err != nil {
+		log.Ctx(ctx).Panic().Err(err).Msg("failed to embed bins")
+	}
+	log.Ctx(ctx).Info().Msg("embedded agent/entry into hub bins")
+
+	// 第二阶段：构建 hub（内嵌 agent/entry）
+	if err := buildOne(ctx, buildInfo, "release-sshole_hub-linux-amd64", "./cmd/hub", "./data/release/sshole_hub-linux-amd64", "linux", "amd64"); err != nil {
+		log.Ctx(ctx).Panic().Err(err).Msg("failed to build release binary for hub")
+	}
 
 	log.Ctx(ctx).Info().Msg("all release builds completed")
 }
