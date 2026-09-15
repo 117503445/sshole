@@ -13,6 +13,8 @@ type HubConfig struct {
 	MappingFile       string
 	PendingTimeout    time.Duration
 	TunnelDialTimeout time.Duration
+	// BinDir, when set, is served read-only under /bins/ for binary distribution.
+	BinDir string
 }
 
 func (c *HubConfig) withDefaults() HubConfig {
