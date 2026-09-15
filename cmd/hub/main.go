@@ -19,6 +19,7 @@ var cli struct {
 	MappingFile string        `env:"SSHOLE_HUB_MAPPING_FILE" default:"data/port_mapping.json"`
 	Pending     time.Duration `env:"SSHOLE_HUB_PENDING_TIMEOUT" default:"10s"`
 	TunnelDial  time.Duration `env:"SSHOLE_HUB_TUNNEL_DIAL_TIMEOUT" default:"5s"`
+	BinDir      string        `env:"SSHOLE_HUB_BIN_DIR"`
 }
 
 func init() {
@@ -46,6 +47,7 @@ func main() {
 		MappingFile:       cli.MappingFile,
 		PendingTimeout:    cli.Pending,
 		TunnelDialTimeout: cli.TunnelDial,
+		BinDir:            cli.BinDir,
 	}
 	log.Info().Interface("cfg", cfg).Msg("hub config")
 

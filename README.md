@@ -60,6 +60,24 @@
 | `--mapping-file` | `SSHOLE_HUB_MAPPING_FILE` | string | `data/port_mapping.json` | 端口映射持久化文件路径 |
 | `--pending` | `SSHOLE_HUB_PENDING_TIMEOUT` | duration | `10s` | 等待隧道建立的超时时间 |
 | `--tunnel-dial` | `SSHOLE_HUB_TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
+| `--bin-dir` | `SSHOLE_HUB_BIN_DIR` | string | - | 二进制分发目录，配置后在 `/bins/` 提供只读下载 |
+
+#### 二进制分发
+
+配置 `--bin-dir` 后，Hub 同时作为文件服务器，在 `/bins/` 下以只读方式提供该目录内容（含目录列表），
+方便在没有 GitHub 访问的环境（如客户沙箱）直接拉取 entry / agent：
+
+```bash
+# Hub 侧：从 Release 填充分发目录（只需一次）
+mkdir -p /var/lib/sshole/bins && cd /var/lib/sshole/bins
+curl -fsSLO https://github.com/117503445/sshole/releases/latest/download/sshole_agent-linux-amd64
+curl -fsSLO https://github.com/117503445/sshole/releases/latest/download/sshole_entry-linux-amd64
+
+# 目标机器侧：一条命令下载 agent
+curl -fsSL https://hub.example.com/bins/sshole_agent-linux-amd64 -o agent.bin && chmod +x agent.bin
+```
+
+`/bins/` 无需认证（二进制与 GitHub Release 公开内容一致），但不会暴露 Auth Token。
 
 ### Entry
 

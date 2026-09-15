@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -115,6 +116,14 @@ func (h *Hub) Start(ctx context.Context) error {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	if h.cfg.BinDir != "" {
+		if err := os.MkdirAll(h.cfg.BinDir, 0o755); err != nil {
+			return fmt.Errorf("create bin dir: %w", err)
+		}
+		// Read-only static file server for entry/agent binaries.
+		mux.Handle("/bins/", http.StripPrefix("/bins/", http.FileServer(http.Dir(h.cfg.BinDir))))
+		log.Info().Str("dir", h.cfg.BinDir).Msg("serving binaries under /bins/")
+	}
 	mux.HandleFunc("/agent", h.handleAgentWS)
 	mux.HandleFunc("/tunnel", h.handleTunnelWS)
 	mux.Handle(h.rpcPath(), h.rpcHandler())

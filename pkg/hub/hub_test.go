@@ -8,7 +8,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,6 +47,12 @@ func startTestHub(t *testing.T, agents map[string]int) (*Hub, string) {
 // startTestHubTimeout is startTestHub with a configurable pending timeout.
 func startTestHubTimeout(t *testing.T, agents map[string]int, pendingTimeout time.Duration) (*Hub, string) {
 	t.Helper()
+	return startTestHubFull(t, agents, pendingTimeout, "")
+}
+
+// startTestHubFull is startTestHub with configurable pending timeout and bin dir.
+func startTestHubFull(t *testing.T, agents map[string]int, pendingTimeout time.Duration, binDir string) (*Hub, string) {
+	t.Helper()
 	mappingFile := filepath.Join(t.TempDir(), "port_mapping.json")
 	if agents != nil {
 		if err := SaveMapping(mappingFile, &PortMapping{Agents: agents}); err != nil {
@@ -57,6 +65,7 @@ func startTestHubTimeout(t *testing.T, agents map[string]int, pendingTimeout tim
 		HTTPAddr:       fmt.Sprintf("127.0.0.1:%d", httpPort),
 		MappingFile:    mappingFile,
 		PendingTimeout: pendingTimeout,
+		BinDir:         binDir,
 	})
 	if err != nil {
 		t.Fatalf("NewHub: %v", err)
@@ -550,5 +559,75 @@ func TestHubConfigDefaults(t *testing.T) {
 	custom := (&HubConfig{HTTPAddr: ":1", PendingTimeout: time.Second, TunnelDialTimeout: 2 * time.Second}).withDefaults()
 	if custom.HTTPAddr != ":1" || custom.PendingTimeout != time.Second || custom.TunnelDialTimeout != 2*time.Second {
 		t.Fatalf("explicit config must be preserved: %+v", custom)
+	}
+}
+
+// TestBinDownload: when BinDir is configured the hub serves its files under
+// /bins/ with directory listing, and rejects path traversal.
+func TestBinDownload(t *testing.T) {
+	binDir := t.TempDir()
+	content := []byte("fake-agent-binary")
+	if err := os.WriteFile(filepath.Join(binDir, "sshole_agent-linux-amd64"), content, 0o644); err != nil {
+		t.Fatalf("write fake binary: %v", err)
+	}
+	_, addr := startTestHubFull(t, nil, 5*time.Second, binDir)
+
+	// File download.
+	resp, err := http.Get("http://" + addr + "/bins/sshole_agent-linux-amd64")
+	if err != nil {
+		t.Fatalf("get binary: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("download status = %d", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != string(content) {
+		t.Fatalf("download body = %q", body)
+	}
+
+	// Directory listing includes the file name.
+	resp2, err := http.Get("http://" + addr + "/bins/")
+	if err != nil {
+		t.Fatalf("get listing: %v", err)
+	}
+	defer resp2.Body.Close()
+	listing, _ := io.ReadAll(resp2.Body)
+	if !strings.Contains(string(listing), "sshole_agent-linux-amd64") {
+		t.Fatalf("listing missing file: %q", listing)
+	}
+
+	// Path traversal must not escape the bin dir.
+	resp3, err := http.Get("http://" + addr + "/bins/%2e%2e/%2e%2e/etc/hostname")
+	if err != nil {
+		t.Fatalf("traversal request: %v", err)
+	}
+	defer resp3.Body.Close()
+	if resp3.StatusCode == http.StatusOK {
+		body, _ := io.ReadAll(resp3.Body)
+		t.Fatalf("traversal escaped bin dir: %q", body)
+	}
+
+	// Missing file -> 404.
+	resp4, err := http.Get("http://" + addr + "/bins/nope")
+	if err != nil {
+		t.Fatalf("get missing: %v", err)
+	}
+	defer resp4.Body.Close()
+	if resp4.StatusCode != http.StatusNotFound {
+		t.Fatalf("missing file status = %d", resp4.StatusCode)
+	}
+}
+
+// TestBinDownloadDisabled: without BinDir the /bins/ endpoint must not exist.
+func TestBinDownloadDisabled(t *testing.T) {
+	_, addr := startTestHub(t, nil)
+	resp, err := http.Get("http://" + addr + "/bins/x")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", resp.StatusCode)
 	}
 }
