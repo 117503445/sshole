@@ -65,26 +65,14 @@
 #### 二进制分发
 
 Release 构建的 hub 已内嵌 `sshole_agent-linux-amd64` 与 `sshole_entry-linux-amd64`，
-开箱即可通过 `/bins/` 下载（无需任何配置）：
+开箱即可通过 `/bins/` 下载（无需任何配置），适合没有 GitHub 访问的环境：
 
 ```bash
-curl -fsSL https://hub.example.com/bins/sshole_agent-linux-amd64 -o agent.bin && chmod +x agent.bin
-```
-
-也可配置 `--bin-dir` 让 Hub 以只读方式分发自定义目录（优先级高于内嵌产物，含目录列表），
-方便在没有 GitHub 访问的环境直接拉取 entry / agent：
-
-```bash
-# Hub 侧：从 Release 填充分发目录（只需一次）
-mkdir -p /var/lib/sshole/bins && cd /var/lib/sshole/bins
-curl -fsSLO https://github.com/117503445/sshole/releases/latest/download/sshole_agent-linux-amd64
-curl -fsSLO https://github.com/117503445/sshole/releases/latest/download/sshole_entry-linux-amd64
-
-# 目标机器侧：一条命令下载 agent
 curl -fsSL https://hub.example.com/bins/sshole_agent-linux-amd64 -o agent.bin && chmod +x agent.bin
 ```
 
 `/bins/` 无需认证（二进制与 GitHub Release 公开内容一致），但不会暴露 Auth Token。
+如需分发其他平台或自定义文件，可配置 `--bin-dir` 改为分发指定目录（优先级高于内嵌产物）。
 
 ### Entry
 
