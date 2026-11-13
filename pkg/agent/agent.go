@@ -27,6 +27,13 @@ type Agent struct {
 	cancel  context.CancelFunc
 }
 
+// 控制连接建立后 Agent 侧完全空闲，NAT 和反向代理会在几十秒内把它掐断，
+// 所以定期 ping Hub 保活；ping 失败说明链路已坏，直接关闭连接触发重连。
+const (
+	controlKeepaliveInterval = 20 * time.Second
+	controlPingTimeout       = 10 * time.Second
+)
+
 func New(cfg AgentConfig) *Agent {
 	c := cfg.withDefaults()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -60,20 +67,31 @@ func (a *Agent) Start(ctx context.Context) error {
 	attempt := 0
 	for {
 		if err := a.connectControl(); err != nil {
-			attempt++
-			if attempt >= a.cfg.Timeouts.AgentReconnectMaxRetries {
-				return fmt.Errorf("control connect failed after %d attempts: %w", attempt, err)
-			}
 			delay := a.cfg.retryBackoff(attempt)
+			attempt++
 			log.Warn().Err(err).Dur("backoff", delay).Msg("control connect failed, retrying")
-			time.Sleep(delay)
+			// 设备侧网络抖动、Hub 重启都不应该让调试 Agent 永久退出，所以无限重连。
+			if !sleepWithContext(ctx, delay) {
+				return ctx.Err()
+			}
 			continue
 		}
 		attempt = 0 // reset after successful connect
 		if err := a.readControl(); err != nil {
 			log.Warn().Err(err).Msg("control connection closed, reconnecting")
-			continue
 		}
+	}
+}
+
+// sleepWithContext 等待退避时间，ctx 提前结束时返回 false。
+func sleepWithContext(ctx context.Context, d time.Duration) bool {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
 	}
 }
 
@@ -126,8 +144,12 @@ func (a *Agent) connectControl() error {
 }
 
 func (a *Agent) readControl() error {
+	ctx, cancel := context.WithCancel(a.ctx)
+	defer cancel()
+	go a.keepaliveControl(ctx, a.control)
+
 	for {
-		msgType, data, err := a.control.Read(a.ctx)
+		msgType, data, err := a.control.Read(ctx)
 		if err != nil {
 			return err
 		}
@@ -145,6 +167,28 @@ func (a *Agent) readControl() error {
 		} else if msg.Type == "ADD_KNOWN_HOST" && msg.KnownHost != "" {
 			if err := appendAuthorizedKey(msg.KnownHost); err != nil {
 				log.Warn().Err(err).Msg("append authorized_key failed")
+			}
+		}
+	}
+}
+
+// keepaliveControl 在 ctx 结束前每 controlKeepaliveInterval 向 Hub 发一次 ping。
+func (a *Agent) keepaliveControl(ctx context.Context, ws *websocket.Conn) {
+	ticker := time.NewTicker(controlKeepaliveInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			pingCtx, cancel := context.WithTimeout(ctx, controlPingTimeout)
+			err := ws.Ping(pingCtx)
+			cancel()
+			if err != nil {
+				log.Warn().Err(err).Msg("control ping failed, reconnecting")
+				_ = ws.Close(websocket.StatusTryAgainLater, "ping failed")
+				return
 			}
 		}
 	}

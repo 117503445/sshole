@@ -67,11 +67,21 @@ func release() {
 		}(target)
 	}
 
-	for _, target := range []struct{ os, arch string }{{"linux", "amd64"}, {"darwin", "arm64"}} {
+	// Agent 出包：Windows 员工机直接跑 sshole.exe，所以 Windows 也要进 release。
+	for _, target := range []struct{ os, arch string }{
+		{"linux", "amd64"},
+		{"darwin", "arm64"},
+		{"windows", "amd64"},
+		{"windows", "arm64"},
+	} {
 		wg.Add(1)
 		go func(target struct{ os, arch string }) {
 			defer wg.Done()
-			outFile := fmt.Sprintf("./data/release/sshole_agent-%s-%s", target.os, target.arch)
+			ext := ""
+			if target.os == "windows" {
+				ext = ".exe"
+			}
+			outFile := fmt.Sprintf("./data/release/sshole_agent-%s-%s%s", target.os, target.arch, ext)
 			reqID := fmt.Sprintf("release-agent-%s-%s", target.os, target.arch)
 			if err := buildOne(ctx, buildInfo, reqID, "./cmd/agent", outFile, target.os, target.arch); err != nil {
 				log.Ctx(ctx).Panic().Err(err).Msg("failed to build release binary for agent")

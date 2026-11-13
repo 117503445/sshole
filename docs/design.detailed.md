@@ -617,10 +617,12 @@ func SessionIDTo16Bytes(sessionID string) [16]byte {
 type Timeouts struct {
     PendingTimeout    time.Duration // 10s
     TunnelDialTimeout time.Duration // 5s
-    AgentReconnectMaxRetries int    // 3
     AgentReconnectBackoff    time.Duration // 1s（递增到上限可选）
 }
 ```
+
+Agent 控制连接由 `pkg/agent` 内部常量控制：每 20 秒 ping 一次，ping 10 秒超时即关闭连接。
+重连不限次数，退避按上面的基础时间递增，上限 30 秒。
 
 ---
 

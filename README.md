@@ -19,7 +19,7 @@
 部署在内网机器上。启动后：
 
 1. 启动内置 SSH 服务器，监听 `127.0.0.1:local-port`
-2. 建立与 Hub 的 WebSocket 控制连接
+2. 建立与 Hub 的 WebSocket 控制连接，之后每 20 秒 ping 一次保活，链路断开后无限重连
 3. 收到 Hub 的 OPEN 消息时，建立隧道连接本地 SSHD
 
 ```bash
@@ -31,12 +31,15 @@
 
 | 参数 | 环境变量 | 类型 | 默认值 | 说明 |
 |------|----------|------|--------|------|
-| `--hub-server` | `SSHOLE_AGENT_HUB_SERVER` | string | - | Hub 服务器地址（必填） |
-| `--auth` | `SSHOLE_AGENT_AUTH` | string | - | 认证 Token（必填） |
-| `--name` | `SSHOLE_AGENT_NAME` | string | hostname | Agent 名称 |
+| `--hub-server` | `SSHOLE_AGENT_HUB_SERVER` | string | `https://sshole.cloud.117503445.top` | Hub 服务器地址 |
+| `--auth` | `SSHOLE_AGENT_AUTH` | string | 内置生产 Token | 认证 Token |
+| `--name` | `SSHOLE_AGENT_NAME` | string | `temp-device` | Agent 名称；同一时间只适合一个临时设备，多台机器需显式区分 |
 | `--local-port` | `SSHOLE_AGENT_LOCAL_PORT` | int | `22222` | 本地 SSHD 监听端口 |
 | `--skip-sshd` | `SSHOLE_AGENT_SKIP_SSHD` | bool | `false` | 跳过启动内置 SSHD |
 | `--tunnel-dial` | `SSHOLE_AGENT_TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
+
+默认值面向“员工双击 `sshole.exe` 就能被管理员连上”的调试场景：不带任何参数即可连上生产 Hub。
+Windows 下内置 SSHD 自动使用 `powershell.exe` 作为 shell。
 
 ### Hub
 
@@ -92,9 +95,9 @@ curl -fsSL https://hub.example.com/bins/sshole_agent-linux-amd64 -o agent.bin &&
 
 | 参数 | 环境变量 | 类型 | 默认值 | 说明 |
 |------|----------|------|--------|------|
-| `--hub-server` | `SSHOLE_ENTRY_HUB_SERVER` | string | - | Hub 服务器地址（必填） |
-| `--auth` | `SSHOLE_ENTRY_AUTH` | string | - | 认证 Token（必填） |
-| `--agent-name` | `SSHOLE_ENTRY_AGENT_NAME` | string | - | 目标 Agent 名称（必填） |
+| `--hub-server` | `SSHOLE_ENTRY_HUB_SERVER` | string | `https://sshole.cloud.117503445.top` | Hub 服务器地址 |
+| `--auth` | `SSHOLE_ENTRY_AUTH` | string | 内置生产 Token | 认证 Token |
+| `--agent-name` | `SSHOLE_ENTRY_AGENT_NAME` | string | `temp-device` | 目标 Agent 名称 |
 | `--entry-port` | `SSHOLE_ENTRY_PORT` | int | `22222` | 本地监听端口 |
 | `--public-key` | `SSHOLE_ENTRY_PUBLIC_KEY` | string | `~/.ssh/id_ed25519.pub` | SSH 公钥路径 |
 | `--private-key` | `SSHOLE_ENTRY_PRIVATE_KEY` | string | `~/.ssh/id_ed25519` | SSH 私钥路径 |

@@ -13,9 +13,9 @@ import (
 )
 
 var cli struct {
-	HubServer  string `env:"SSHOLE_ENTRY_HUB_SERVER"`
-	Auth       string `env:"SSHOLE_ENTRY_AUTH"`
-	AgentName  string `env:"SSHOLE_ENTRY_AGENT_NAME"`
+	HubServer  string `env:"SSHOLE_ENTRY_HUB_SERVER" default:"https://sshole.cloud.117503445.top"`
+	Auth       string `env:"SSHOLE_ENTRY_AUTH" default:"1tG2eIigjZXPWm"`
+	AgentName  string `env:"SSHOLE_ENTRY_AGENT_NAME" default:"temp-device"`
 	EntryPort  int    `env:"SSHOLE_ENTRY_PORT" default:"22222"`
 	PublicKey  string `env:"SSHOLE_ENTRY_PUBLIC_KEY" default:"~/.ssh/id_ed25519.pub"`
 	PrivateKey string `env:"SSHOLE_ENTRY_PRIVATE_KEY" default:"~/.ssh/id_ed25519"`

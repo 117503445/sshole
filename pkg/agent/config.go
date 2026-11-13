@@ -35,13 +35,10 @@ func (c *AgentConfig) withDefaults() AgentConfig {
 	if out.Timeouts.AgentReconnectBackoff == 0 {
 		out.Timeouts.AgentReconnectBackoff = timeouts.AgentReconnectBackoff
 	}
-	if out.Timeouts.AgentReconnectMaxRetries == 0 {
-		out.Timeouts.AgentReconnectMaxRetries = timeouts.AgentReconnectMaxRetries
-	}
 	return out
 }
 
-// retryBackoff returns a bounded backoff duration.
+// retryBackoff 返回第 attempt 次失败后的退避时间，最长 30s；重连本身不限次数。
 func (c AgentConfig) retryBackoff(attempt int) time.Duration {
 	backoff := c.Timeouts.AgentReconnectBackoff * time.Duration(attempt+1)
 	max := 30 * time.Second

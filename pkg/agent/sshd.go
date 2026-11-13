@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -34,6 +35,11 @@ func (a *Agent) ensureSSHD(ctx context.Context, port int) (func(), error) {
 	}
 	cfg.AuthorizedKeysFiles = authorizedKeysPath
 	log.Info().Str("path", authorizedKeysPath).Msg("using authorized_keys for authentication")
+
+	// Windows 没有 /bin/sh，sshlib 默认会校验该路径并直接启动失败。
+	if runtime.GOOS == "windows" && cfg.Shell == "" {
+		cfg.Shell = "powershell.exe"
+	}
 
 	server, err := sshlib.NewServer(ctx, cfg)
 	if err != nil {

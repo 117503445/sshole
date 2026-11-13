@@ -121,8 +121,10 @@ Entry 启动时会：
 |------|--------|------|
 | `PendingTimeout` | `10s` | 等待隧道建立的超时 |
 | `TunnelDialTimeout` | `5s` | 隧道拨号超时 |
-| `AgentReconnectMaxRetries` | `3` | 重连最大重试次数 |
 | `AgentReconnectBackoff` | `1s` | 重连退避基础时间 |
+
+Agent 的控制连接每 20 秒 ping 一次保活（`controlKeepaliveInterval`），ping 超过 10 秒未收到 pong 就关闭连接触发重连。
+重连不限次数，退避按 `AgentReconnectBackoff × 次数` 递增，最长 30 秒；调试设备经常只断网几十秒，进程不该因此永久退出。
 
 ### 超时配置建议
 
@@ -130,7 +132,7 @@ Entry 启动时会：
 
 - **局域网**: 可适当减小超时值
 - **公网/高延迟**: 建议增大 `PendingTimeout` 到 `15-20s`
-- **不稳定网络**: 增大 `AgentReconnectMaxRetries` 到 `5-10`
+- **不稳定网络**: 保持默认无限重连，必要时调小 `AgentReconnectBackoff` 加快恢复
 
 ## Docker 环境变量
 

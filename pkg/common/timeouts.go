@@ -6,7 +6,6 @@ import "time"
 type Timeouts struct {
 	PendingTimeout           time.Duration
 	TunnelDialTimeout        time.Duration
-	AgentReconnectMaxRetries int
 	AgentReconnectBackoff    time.Duration
 }
 
@@ -15,7 +14,6 @@ func DefaultTimeouts() Timeouts {
 	return Timeouts{
 		PendingTimeout:           10 * time.Second,
 		TunnelDialTimeout:        5 * time.Second,
-		AgentReconnectMaxRetries: 3,
 		AgentReconnectBackoff:    1 * time.Second,
 	}
 }
