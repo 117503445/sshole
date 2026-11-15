@@ -31,6 +31,15 @@
 - 本地真起 Hub + 两个 Agent（同一台机器、两个不同 `HOME`、都不带 `--name`）：
   分别注册成 `dev-nixos-a46dad30`（端口 10000）和 `dev-nixos-52740bf8`（端口 10001），
   `port_mapping.json` 里两条独立映射；用同一个 `HOME` 重启 Agent 复用原名字；显式 `--name tax-pc-02` 时不生成、也不落名字文件。
+- Windows 真机（WIN-7700K，Windows 11 专业版 26200，`nt authority\system`）用生产下载入口的 CI 产物实测：
+  下载落地 14,083,584 字节、sha256 `C8096A8E…` 与 release 资产一致；进程自报 `GitCommit=00ca1799d7ca GitDirty=false`；
+  不带 `--name` 启动生成 `win-7700k-1043f6c8` 并写入 `%USERPROFILE%\.sshole\agent-name`（SYSTEM 下即 `C:\WINDOWS\system32\config\systemprofile`）；
+  重启进程复用同名（Hub 上仍是同一个 `win-7700k-1043f6c8`，端口 10014），内置 sshdev 监听 `127.0.0.1:22222`，`control connected` 后在线 7 分钟无断链。
+  再换一个 `USERPROFILE` 起第二个实例（模拟第二台税务电脑），生成 `win-7700k-eecdf6b2` 并拿到独立端口 10015，
+  两个名字在 Hub 上同时 `online:true`——这就是多台机器不互相顶掉的直接证据。
+  控制链：dev 机用同 release 的 `sshole_entry-linux-amd64 --agent-name win-7700k-1043f6c8` 起 Entry，
+  `ssh -p 22231 root@127.0.0.1` 经 Hub 隧道返回 `nt authority\system` / `WIN-7700K`。
+  验证后已停进程并删除 `C:\Windows\Temp\sshole-verify` 与本次生成的 `systemprofile\.sshole`。
 
 ## 任务：调试 Agent 掉线后不再自愈（2026-11-13）
 
