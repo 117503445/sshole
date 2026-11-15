@@ -50,12 +50,16 @@
 |------|------|--------|------|
 | `--hub-url` | string | - | Hub 服务器地址（必填） |
 | `--token` | string | - | 认证 Token（必填） |
-| `--agent-name` | string | - | Agent 名称（必填） |
+| `--name` | string | 空（自动生成） | Agent 名称；不指定时生成 `<主机名>-<8位随机hex>` |
 | `--local-port` | int | `22222` | 本地 SSHD 监听端口 |
 | `--pending-timeout` | duration | `10s` | 等待隧道建立的超时时间 |
 | `--tunnel-dial-timeout` | duration | `5s` | 隧道拨号超时时间 |
 | `--reconnect-max-retries` | int | `3` | 重连最大重试次数 |
 | `--reconnect-backoff` | duration | `1s` | 重连退避基础时间 |
+
+不指定 `--name`（也没有 `SSHOLE_AGENT_NAME`）时，Agent 生成 `<主机名>-<8位随机hex>` 作为名称，
+避免多台机器（尤其是克隆镜像里主机名相同的机器）抢同一个 Hub 端口。名称保存在 `$HOME/.sshole/agent-name`
+并复用，重启不变；生成时启动日志会打印最终名称。详见 `README.md`。
 
 ### 示例
 

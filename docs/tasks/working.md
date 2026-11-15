@@ -1,5 +1,37 @@
 # 工作记录
 
+## 任务：多台税务电脑 Agent 名称冲突（2026-11-15）
+
+### 用户交互记录
+
+- 用户输入：「不对，如果我有多台税务电脑就冲突了。我想保证每个sshdev进程如果没有名字，就随机生成一个防止冲突」
+- 背景：上一轮把 `--name` 默认值写死成 `temp-device`，两台税务电脑同时跑会抢同一个 Agent 名和同一个 Hub 端口。
+
+### 需求
+
+1. 不带 `--name`（也没有 `SSHOLE_AGENT_NAME`）时，名称必须唯一，不能多台机器撞名。
+2. 显式传 `--name` 时行为不变。
+
+### 实现步骤
+
+1. `pkg/agent/naming.go`（新增）：`ResolveAgentName()` 生成 `<主机名>-<8位随机hex>`。
+   保留主机名前缀是为了让管理员在 Hub 上认得出是哪台机器，随机后缀才承担防冲突；
+   结果写入 `$HOME/.sshole/agent-name` 复用，否则每次重启都会在 Hub 上多留一个永久条目（端口映射是持久化的）。
+   `sanitizeName()` 把名称收敛成 `X-Agent` 头能安全承载的字符集（小写字母、数字、`-`）。
+2. `pkg/agent/lock.go`：改用共用的 `ssholeDir()`，去掉重复的 `$HOME/.sshole` 拼路径。
+3. `cmd/agent/main.go`：`--name` 默认值从 `temp-device` 改为空；为空时调用 `ResolveAgentName()` 并打日志。
+   原来回落到裸主机名，克隆镜像会重复，正好是用户要避免的情况。
+4. Entry 的 `--agent-name` 默认值保持 `temp-device` 不动（不在本次需求内），但随机名生效后管理员要显式指定，已写进 README。
+5. 同步 `README.md`、`docs/configuration.md`。
+
+### 验证结果
+
+- `gofmt -l` 对改动文件无输出；`CGO_ENABLED=0 go vet ./...` 通过；`go test ./... -count=1` 全部通过。
+- `pkg/agent/naming_test.go`：稳定复用、20 次生成互不重复、名称形状与字符集、名字文件损坏时重新生成、`sanitizeName` 用例。
+- 本地真起 Hub + 两个 Agent（同一台机器、两个不同 `HOME`、都不带 `--name`）：
+  分别注册成 `dev-nixos-a46dad30`（端口 10000）和 `dev-nixos-52740bf8`（端口 10001），
+  `port_mapping.json` 里两条独立映射；用同一个 `HOME` 重启 Agent 复用原名字；显式 `--name tax-pc-02` 时不生成、也不落名字文件。
+
 ## 任务：调试 Agent 掉线后不再自愈（2026-11-13）
 
 ### 用户交互记录

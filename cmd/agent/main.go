@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/117503445/goutils/glog"
@@ -17,7 +16,7 @@ import (
 var cli struct {
 	HubServer  string        `env:"SSHOLE_AGENT_HUB_SERVER" default:"https://sshole.cloud.117503445.top"`
 	Auth       string        `env:"SSHOLE_AGENT_AUTH" default:"1tG2eIigjZXPWm"`
-	Name       string        `env:"SSHOLE_AGENT_NAME" default:"temp-device"`
+	Name       string        `env:"SSHOLE_AGENT_NAME" default:""`
 	LocalPort  int           `env:"SSHOLE_AGENT_LOCAL_PORT" default:"22222"`
 	SkipSSHD   bool          `env:"SSHOLE_AGENT_SKIP_SSHD" help:"Skip starting embedded sshd, connect to existing SSH server on LocalPort"`
 	TunnelDial time.Duration `env:"SSHOLE_AGENT_TUNNEL_DIAL_TIMEOUT" default:"5s"`
@@ -53,12 +52,13 @@ func main() {
 		log.Panic().Msg("HUB_SERVER is required")
 	}
 	if cli.Name == "" {
-		name, err := os.Hostname()
+		// 未指定名称时生成一个带随机后缀的名字，多台机器同时运行不会互相顶掉。
+		name, err := agent.ResolveAgentName()
 		if err != nil {
-			log.Panic().Err(err).Msg("failed to get hostname")
+			log.Panic().Err(err).Msg("failed to resolve agent name")
 		}
 		cli.Name = name
-		log.Info().Str("name", cli.Name).Msg("Using hostname as name")
+		log.Info().Str("name", cli.Name).Msg("no --name given, using generated agent name")
 	}
 
 	cfg := agent.AgentConfig{

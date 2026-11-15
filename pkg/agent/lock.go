@@ -2,7 +2,6 @@ package agent
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 )
 
@@ -13,13 +12,9 @@ var ErrAlreadyRunning = errors.New("another agent instance is already running")
 // 成功返回释放函数；已有实例运行时返回 ErrAlreadyRunning。
 // 锁由操作系统在进程退出时自动释放，无残留状态。
 func AcquireInstanceLock() (func(), error) {
-	home, err := os.UserHomeDir()
+	dir, err := ssholeDir()
 	if err != nil {
 		return nil, err
 	}
-	ssholeDir := filepath.Join(home, ".sshole")
-	if err := os.MkdirAll(ssholeDir, 0o700); err != nil {
-		return nil, err
-	}
-	return acquireFileLock(filepath.Join(ssholeDir, "agent.lock"))
+	return acquireFileLock(filepath.Join(dir, "agent.lock"))
 }

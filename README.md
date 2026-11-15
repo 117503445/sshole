@@ -33,13 +33,30 @@
 |------|----------|------|--------|------|
 | `--hub-server` | `SSHOLE_AGENT_HUB_SERVER` | string | `https://sshole.cloud.117503445.top` | Hub 服务器地址 |
 | `--auth` | `SSHOLE_AGENT_AUTH` | string | 内置生产 Token | 认证 Token |
-| `--name` | `SSHOLE_AGENT_NAME` | string | `temp-device` | Agent 名称；同一时间只适合一个临时设备，多台机器需显式区分 |
+| `--name` | `SSHOLE_AGENT_NAME` | string | 空（自动生成） | Agent 名称；不指定时按规则自动生成，见下 |
 | `--local-port` | `SSHOLE_AGENT_LOCAL_PORT` | int | `22222` | 本地 SSHD 监听端口 |
 | `--skip-sshd` | `SSHOLE_AGENT_SKIP_SSHD` | bool | `false` | 跳过启动内置 SSHD |
 | `--tunnel-dial` | `SSHOLE_AGENT_TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
 
 默认值面向“员工双击 `sshole.exe` 就能被管理员连上”的调试场景：不带任何参数即可连上生产 Hub。
 Windows 下内置 SSHD 自动使用 `powershell.exe` 作为 shell。
+
+#### 不指定 `--name` 时的名称
+
+未指定名称时生成 `<主机名>-<8位随机hex>`（例如 `win-tax01-3f9a1c2b`）：主机名让管理员认得出是哪台机器，
+随机后缀保证克隆镜像里主机名重复的机器也不会互相顶掉同一个 Hub 端口。
+
+生成的名称写入 `$HOME/.sshole/agent-name` 并复用，同一台机器重启后仍是同一个 Agent，不会每次启动都多出一个新条目。
+启动日志里的 `no --name given, using generated agent name` 会打印最终名称，现场人员照它上报即可。
+
+管理员侧查名字（`online:true` 表示当前在线）：
+
+```bash
+curl -s -X POST https://sshole.cloud.117503445.top/pkg.rpc.v1.HoleService/ListAgents \
+  -H "Authorization: Bearer <生产 Token>" -H "Content-Type: application/json" -d '{}'
+```
+
+拿到名字后用它连 Entry：`sshole-entry --agent-name <名字>`。
 
 ### Hub
 
