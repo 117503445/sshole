@@ -68,6 +68,7 @@ func main() {
 		LocalPort: cli.LocalPort,
 		SkipSSHD:  cli.SkipSSHD,
 	}
+	common.PrintAgentBanner(cfg.AgentName, cfg.HubURL, cfg.LocalPort, cfg.SkipSSHD)
 	cfg.Timeouts = common.DefaultTimeouts()
 	cfg.Timeouts.TunnelDialTimeout = cli.TunnelDial
 

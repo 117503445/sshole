@@ -69,3 +69,23 @@
 - `GOOS=windows GOARCH=amd64 go build ./cmd/agent`、`./cmd/entry` 均编译通过。
 - `go run . release` 本地跑通，产出 `data/release/sshole_agent-windows-amd64.exe` 等全部平台产物。
 - 真机验证：用 CI 产出的 Linux Agent 连生产 Hub 观察控制连接是否跨过 30 秒；并把 Hub 地址指向不可达端口，确认进程持续重连不退出。
+
+## 2026-11-16 启动横幅：版本、提交与本节点信息
+
+### 背景
+
+- 用户要求：「sshole luoxiagent 下载的文件名带有版本号，启动后也有版本号 commit 标识。sshole 和 luoxiagent 也要在醒目位置显示本节点的信息。」
+- 现场问题：员工机上的 `sshole.exe` 是一个黑框，出问题时没人说得清「这是哪台机器、哪个构建」；JSON 日志里的 build info 也不是现场人员能读的形式。
+
+### 实现
+
+1. `pkg/common/banner.go`：新增 `CollectNodeInfo`、`PrintAgentBanner`、`PrintEntryBanner`，用纯文本块打印版本、提交（前 12 位）、构建时间、计算机名、本机地址、系统版本、Agent 名称、Hub 与本地 SSH 端口。
+2. `pkg/common/osinfo_windows.go`、`pkg/common/osinfo_other.go`：Windows 用 `windows.RtlGetVersion()` 打印真实内部版本与构建号（不受清单伪装影响），其他平台只打印系统名与架构。
+3. `cmd/agent/main.go`、`cmd/entry/main.go`：在配置解析完成后、进入连接循环前打印横幅，保证名称已解析、端口已确定。
+4. `README.md`：新增「启动横幅（版本与本节点信息）」。
+
+### 验证
+
+- `gofmt -l` 无输出；`CGO_ENABLED=0 go vet ./...` 通过；`go test ./... -count=1` 全绿（`-race` 交给 CI）。
+- `GOOS=windows go build ./...` 通过，横幅代码在 Windows 目标下编译。
+- `go run ./cmd/agent` 实跑打印出横幅；本地未注入 ldflags 时版本、提交、构建时间显示 `unknown`，与本节点、Hub、端口一起仍可完整定位设备。

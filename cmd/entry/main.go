@@ -53,6 +53,7 @@ func main() {
 		PrivateKeyPath: cli.PrivateKey,
 	}
 
+	common.PrintEntryBanner(cfg.HubAddr, cfg.AgentName, cfg.EntryPort)
 	ctx := context.Background()
 	ctx = log.Logger.WithContext(ctx)
 	runEntry(ctx, cfg)
