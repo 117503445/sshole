@@ -69,11 +69,16 @@ func (h *Hub) recordAgentStatus(name string, data []byte) {
 // agentViewLocked 需要在持有读锁时调用，组装单个 Agent 的运维视图。
 // 参数 name：Agent 名称；参数 state：Agent 状态。
 func agentViewLocked(name string, state *AgentState) agentStatusView {
+	lastSeenMS := int64(0)
+	if !state.LastSeen.IsZero() {
+		// 零值时间直接 UnixMilli 会得到 -62135596800000 这种负数，运维读起来像时钟坏了。
+		lastSeenMS = state.LastSeen.UnixMilli()
+	}
 	view := agentStatusView{
 		AgentName:  name,
 		HubPort:    state.HubPort,
 		Online:     state.Control != nil,
-		LastSeenMS: state.LastSeen.UnixMilli(),
+		LastSeenMS: lastSeenMS,
 	}
 	if status := state.Status; status != nil {
 		view.StatusReported = true
