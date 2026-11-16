@@ -3,6 +3,7 @@ package entry
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -61,6 +62,8 @@ func (e *Entry) Start(ctx context.Context) error {
 			log.Warn().Err(err).Msg("failed to append known_hosts")
 		}
 	}
+	// 启动就把 Agent 的真实状态打出来：是哪台机器、哪个构建、本机 SSH 通不通。
+	log.Info().Str("agent", agent.AgentName).Str("state", e.describeAgent(ctx, agent.AgentName)).Msg("agent state")
 
 	listenAddr := fmt.Sprintf(":%d", e.cfg.EntryPort)
 	ln, err := net.Listen("tcp", listenAddr)
@@ -73,7 +76,8 @@ func (e *Entry) Start(ctx context.Context) error {
 	go func() {
 		time.Sleep(2 * time.Second) // Wait a bit for tunnel to be ready
 		if err := e.testSSHConnectivity(); err != nil {
-			log.Warn().Err(err).Msg("SSH connectivity test failed")
+			// 失败时补一句 Hub 侧看到的状态，避免只剩 handshake EOF 这种无法判断的报错。
+			log.Warn().Err(err).Str("agent", agent.AgentName).Str("hub_view", e.describeAgent(ctx, agent.AgentName)).Msg("SSH connectivity test failed")
 		}
 	}()
 
@@ -162,7 +166,7 @@ func (e *Entry) handleConn(ctx context.Context, local net.Conn, hubPort int) {
 		HTTPHeader: header,
 	})
 	if err != nil {
-		log.Error().Err(err).Str("url", tunnelURL).Msg("dial websocket failed")
+		log.Error().Err(err).Str("url", tunnelURL).Str("hub_view", e.describeAgent(ctx, agent.AgentName)).Msg("dial websocket failed")
 		return
 	}
 	defer ws.Close(websocket.StatusNormalClosure, "closed")
@@ -194,6 +198,81 @@ func hostFromURL(raw string) (string, error) {
 }
 
 var httpClient = http.DefaultClient
+
+// agentHealth 是 Hub /api/agents 返回的单条运维视图，只取排查连接问题需要的字段。
+type agentHealth struct {
+	// AgentName 是 Agent 名称。
+	AgentName string `json:"agent_name"`
+	// Online 表示 Hub 当前持有该 Agent 的控制连接。
+	Online bool `json:"online"`
+	// LastSeenMS 是最后一次证明控制连接活着的时间。
+	LastSeenMS int64 `json:"last_seen_ms"`
+	// StatusReported 表示该 Agent 会上报状态帧。
+	StatusReported bool `json:"status_reported"`
+	// Hostname 是 Agent 所在机器名。
+	Hostname string `json:"hostname"`
+	// Version 是 Agent 构建版本。
+	Version string `json:"version"`
+	// SSHPort 是 Agent 本机 SSH 端口。
+	SSHPort int `json:"ssh_port"`
+	// SSHReady 表示 Agent 本机 SSH 可连接。
+	SSHReady bool `json:"ssh_ready"`
+	// SSLError 是最近一次本机 SSH 不可用的原因。
+	SSLError string `json:"ssh_error"`
+}
+
+// describeAgent 向 Hub 查询目标 Agent 的真实状态，把"连不上"变成一句能读懂的话。
+//
+// 机器直接关机时 TCP 不会发 FIN，Hub 以前会长期以为在线，Entry 只能报
+// handshake EOF；现在能明确区分"机器不在线"和"机器在线但本机 SSH 没起来"。
+// 参数 ctx：请求上下文；参数 agentName：目标 Agent 名称。
+func (e *Entry) describeAgent(ctx context.Context, agentName string) string {
+	reqCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	endpoint := strings.TrimSuffix(e.cfg.HubAddr, "/") + "/api/agents"
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return "查询 Hub 状态失败: " + err.Error()
+	}
+	if e.cfg.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+e.cfg.Token)
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "查询 Hub 状态失败: " + err.Error()
+	}
+	defer resp.Body.Close()
+	var body struct {
+		Agents []agentHealth `json:"agents"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return "解析 Hub 状态失败: " + err.Error()
+	}
+	for _, a := range body.Agents {
+		if a.AgentName != agentName {
+			continue
+		}
+		if !a.StatusReported {
+			return fmt.Sprintf("online=%v，该 Agent 版本过旧不会上报状态，请更新到最新构建", a.Online)
+		}
+		lastSeen := "从未"
+		if a.LastSeenMS > 0 {
+			lastSeen = time.UnixMilli(a.LastSeenMS).Format(time.RFC3339)
+		}
+		sshState := "未监听"
+		if a.SSHReady {
+			sshState = "就绪"
+		} else if a.SSLError != "" {
+			sshState = "未监听（" + a.SSLError + "）"
+		}
+		if !a.Online {
+			// 状态帧是断开前最后一次上报的，只能当作"最后已知状态"，不能读成现在还可用。
+			return fmt.Sprintf("online=false（Hub 已判定离线，机器多半已关机或断网）最后已知状态 hostname=%s version=%s ssh=%d %s last_seen=%s", a.Hostname, a.Version, a.SSHPort, sshState, lastSeen)
+		}
+		return fmt.Sprintf("online=true hostname=%s version=%s ssh=%d %s last_seen=%s", a.Hostname, a.Version, a.SSHPort, sshState, lastSeen)
+	}
+	return "Hub 未登记该 Agent"
+}
 
 var ioCopy = func(dst net.Conn, src net.Conn) (int64, error) {
 	return io.Copy(dst, src)

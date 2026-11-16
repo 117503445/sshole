@@ -45,6 +45,11 @@ type AgentState struct {
 	Control     *WSConn
 	HubPort     int
 	ConnectedAt time.Time
+	// LastSeen 是 Hub 最后一次确认这条控制连接还活着的时间（收到任意帧或 pong）。
+	// 只有 TCP 半开（机器直接关机）时它才会停住，这正是判定离线的依据。
+	LastSeen time.Time
+	// Status 是 Agent 最近一次上报的状态帧；旧版本 Agent 不上报，保持 nil。
+	Status *proto.AgentStatus
 }
 
 // Hub is the main runtime for the hub process.
@@ -123,6 +128,7 @@ func (h *Hub) Start(ctx context.Context) error {
 	}
 	mux.HandleFunc("/agent", h.handleAgentWS)
 	mux.HandleFunc("/tunnel", h.handleTunnelWS)
+	mux.HandleFunc("/api/agents", h.handleAgentsAPI)
 	mux.Handle(h.rpcPath(), h.rpcHandler())
 
 	server := &http.Server{

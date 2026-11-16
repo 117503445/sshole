@@ -9,10 +9,12 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/117503445/sshole/internal/buildinfo"
 	"github.com/117503445/sshole/pkg/proto"
 	"github.com/117503445/sshole/pkg/tunnel"
 	"github.com/coder/websocket"
@@ -25,6 +27,12 @@ type Agent struct {
 	control *websocket.Conn
 	ctx     context.Context
 	cancel  context.CancelFunc
+
+	// 内嵌 sshd 的当前可清理句柄与最近一次失败原因，由 sshMu 保护，
+	// 只用于状态上报和重启，不影响控制连接。
+	sshMu      sync.Mutex
+	sshCleanup func()
+	sshErr     string
 }
 
 // 控制连接建立后 Agent 侧完全空闲，NAT 和反向代理会在几十秒内把它掐断，
@@ -58,7 +66,11 @@ func (a *Agent) Start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		defer cleanup()
+		a.setSSHCleanup(cleanup)
+		defer a.closeSSHCleanup()
+		// 内嵌 sshd 一旦退出，控制连接仍然健康，Hub 会一直以为这台机器可用，
+		// 所以这里必须看护它并在监听消失时重启。
+		a.watchSSHD(a.ctx, a.cfg.LocalPort)
 	} else {
 		log.Info().Int("port", a.cfg.LocalPort).Msg("skip sshd, assuming existing SSH server")
 		cleanup = func() {}
@@ -146,7 +158,7 @@ func (a *Agent) connectControl() error {
 func (a *Agent) readControl() error {
 	ctx, cancel := context.WithCancel(a.ctx)
 	defer cancel()
-	go a.keepaliveControl(ctx, a.control)
+	go a.reportControlStatus(ctx, a.control)
 
 	for {
 		msgType, data, err := a.control.Read(ctx)
@@ -172,26 +184,52 @@ func (a *Agent) readControl() error {
 	}
 }
 
-// keepaliveControl 在 ctx 结束前每 controlKeepaliveInterval 向 Hub 发一次 ping。
-func (a *Agent) keepaliveControl(ctx context.Context, ws *websocket.Conn) {
+// reportControlStatus 在 ctx 结束前立即并周期地向 Hub 发一帧状态，替代原来只保活的 ping。
+//
+// 状态帧同时承担保活作用；写失败说明链路已坏，直接关闭连接触发重连。
+func (a *Agent) reportControlStatus(ctx context.Context, ws *websocket.Conn) {
 	ticker := time.NewTicker(controlKeepaliveInterval)
 	defer ticker.Stop()
 
 	for {
+		if err := a.sendStatus(ctx, ws); err != nil {
+			log.Warn().Err(err).Msg("control status failed, reconnecting")
+			_ = ws.Close(websocket.StatusTryAgainLater, "status failed")
+			return
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			pingCtx, cancel := context.WithTimeout(ctx, controlPingTimeout)
-			err := ws.Ping(pingCtx)
-			cancel()
-			if err != nil {
-				log.Warn().Err(err).Msg("control ping failed, reconnecting")
-				_ = ws.Close(websocket.StatusTryAgainLater, "ping failed")
-				return
-			}
 		}
 	}
+}
+
+// sendStatus 组装并发送一帧 Agent 状态，包含构建标识、主机名和本机 SSH 就绪情况。
+// 参数 ctx：控制连接生命周期；参数 ws：当前控制连接。
+func (a *Agent) sendStatus(ctx context.Context, ws *websocket.Conn) error {
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
+	ready, reason := a.sshProbe()
+	status := proto.AgentStatus{
+		Type:      "STATUS",
+		Version:   buildinfo.GitVersion,
+		Commit:    buildinfo.GitCommit,
+		BuildTime: buildinfo.BuildTime,
+		Hostname:  hostname,
+		SSHPort:   a.cfg.LocalPort,
+		SSHReady:  ready,
+		SSLError:  reason,
+	}
+	data, err := json.Marshal(status)
+	if err != nil {
+		return err
+	}
+	writeCtx, cancel := context.WithTimeout(ctx, controlPingTimeout)
+	defer cancel()
+	return ws.Write(writeCtx, websocket.MessageText, data)
 }
 
 func (a *Agent) handleOpen(sessionID string) {

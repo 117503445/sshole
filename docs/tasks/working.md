@@ -89,3 +89,52 @@
 - `gofmt -l` 无输出；`CGO_ENABLED=0 go vet ./...` 通过；`go test ./... -count=1` 全绿（`-race` 交给 CI）。
 - `GOOS=windows go build ./...` 通过，横幅代码在 Windows 目标下编译。
 - `go run ./cmd/agent` 实跑打印出横幅；本地未注入 ldflags 时版本、提交、构建时间显示 `unknown`，与本节点、Hub、端口一起仍可完整定位设备。
+
+## 2026-11-16 在线判定与本机 SSH 就绪可观测
+
+### 背景
+
+- 现场事实：一台办公机（192.168.1.2，Agent 名 `desktop-8nkqc4t-318ddebf`）18:16 之后所有 SSH 都失败，
+  但 Hub `ListAgents` 一直报 `online:true`，Entry 只能给出 `ssh: handshake failed: EOF`，
+  排查方向被带到"内嵌 sshd 死了"，实际是机器被人关机了。
+- 根因：`handleAgentWS` 的读循环只在收到帧时才感知断开；机器直接断电 TCP 不发 FIN，
+  Hub 永远读不到 EOF，`state.Control` 一直非空，`Online: state.Control != nil` 就是假的在线。
+  控制连接建立后 Agent 侧不发任何数据帧，Hub 也从不主动探测。
+- 用户要求：「你先开始 sshole 和 luoxiagent 修复吧」，前一轮已明确要求加强可观测性、要能看到失败原因。
+
+### 实现
+
+1. `pkg/proto/control.go`：新增 `AgentStatus`（Agent → Hub 的 `STATUS` 帧）：版本、提交、构建时间、
+   主机名、本机 SSH 端口、`ssh_ready`、`ssh_error`。
+2. `pkg/agent/agent.go`：`keepaliveControl` 改为 `reportControlStatus`，连接建立后立即并每 20 秒发一帧
+   状态（取代裸 ping，仍承担保活）；写失败即关闭连接触发重连。
+3. `pkg/agent/sshd.go`：新增 `watchSSHD`/`restartSSHD`/`sshProbe`/`setSSHCleanup`/`closeSSHCleanup`，
+   每 15 秒巡检内嵌 sshd 监听，消失就重启并把失败原因留在状态帧里；`SkipSSHD` 模式只探测不接管，
+   避免误杀现场自己的 sshd。
+4. `pkg/hub/config.go`、`cmd/hub/main.go`：新增 `AgentPingInterval`（`SSHOLE_HUB_AGENT_PING_INTERVAL`，默认 20s）
+   与 `AgentPingTimeout`（`SSHOLE_HUB_AGENT_PING_TIMEOUT`，默认 10s）。
+5. `pkg/hub/agent_ws.go`：控制连接建立后启动 `keepaliveAgent` 主动探测，pong 超时立即
+   `markAgentOffline` 再关连接（coder/websocket 的本地 `Close` 不会立刻打断阻塞中的 `Read`，
+   只依赖读循环收尾会继续假在线）；读循环解析 `STATUS` 帧并记录 `LastSeen`，断开原因写进 Hub 日志。
+6. `pkg/hub/agents_api.go`：新增 `GET /api/agents`（Bearer 同 RPC），输出 online、last_seen_ms、
+   status_reported、hostname、version、commit、ssh_port、ssh_ready、ssh_error。
+7. `pkg/hub/tunnel_ws.go`：Agent 无控制连接时直接 `503` 并附最近状态与最后活跃时间，不再让 Entry 等满 pending 超时。
+8. `pkg/entry/entry.go`：新增 `describeAgent`，启动、SSH 测试失败、隧道拨号失败三处都打印 `hub_view`；
+   离线时明确写成"最后已知状态"，避免把过期状态读成现在可用。
+9. `README.md`：补 Hub 新参数与「在线判定与状态查询」小节。
+
+### 验证
+
+- `gofmt -l` 对改动文件无输出；`CGO_ENABLED=0 go vet ./...` 通过；`go test ./... -count=1` 全绿
+  （本机无可用 cgo，`-race` 由 GitHub CI 执行）。
+- 新增测试：`TestAgentStatusAndLiveness`（状态帧进入 `/api/agents`；客户端不再回 pong 的半开连接必须被判离线）、
+  `TestTunnelRejectsOfflineAgent`（离线 Agent 的 `/tunnel` 必须 503）、
+  `TestSSHProbeReportsNotListening`、`TestRestartSSHDRestoresListener`（内嵌 sshd 监听消失后能重新拉起）。
+- 本地真链路复现（`projects/luoxi/data/20261116-1845-sshole-observability/`，hub/agent/entry 均为本地构建，
+  探测周期压到 1s）：
+  1. 正常在线：`{"online":true,...,"hostname":"dev-nixos","ssh_port":22922,"ssh_ready":true,"status_reported":true}`。
+  2. `kill -STOP` 冻结 Agent 模拟掉电半开：4 秒后 `online:false` 且 `last_seen_ms` 停住，
+     Hub 日志出现 `agent liveness probe failed, marking offline`。
+  3. 此时启动 Entry：`agent state ... state="online=false（Hub 已判定离线，机器多半已关机或断网）最后已知状态 hostname=dev-nixos ssh=22922 就绪 last_seen=2026-11-16T18:46:30+08:00"`，
+     隧道拨号失败也带同一句 `hub_view`，不再是裸 EOF。
+  4. `kill -CONT` 恢复：Agent 自动重连，`online:true` 且 `last_seen_ms` 重新推进。

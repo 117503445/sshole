@@ -87,6 +87,84 @@ func isPortListening(port int) bool {
 	return true
 }
 
+// sshdWatchInterval 是内嵌 sshd 的巡检周期；监听消失说明服务协程已经退出。
+const sshdWatchInterval = 15 * time.Second
+
+// setSSHCleanup 记录当前内嵌 sshd 的关闭函数，并清掉上一次的失败原因。
+// 参数 cleanup：winio/sshlib 服务返回的停止函数。
+func (a *Agent) setSSHCleanup(cleanup func()) {
+	a.sshMu.Lock()
+	defer a.sshMu.Unlock()
+	a.sshCleanup = cleanup
+	a.sshErr = ""
+}
+
+// closeSSHCleanup 关闭当前内嵌 sshd，供 Agent 退出或重启前调用。
+func (a *Agent) closeSSHCleanup() {
+	a.sshMu.Lock()
+	cleanup := a.sshCleanup
+	a.sshCleanup = nil
+	a.sshMu.Unlock()
+	if cleanup != nil {
+		cleanup()
+	}
+}
+
+// sshProbe 返回本机 SSH 端口此刻是否可连接，以及最近一次失败原因，供状态帧使用。
+func (a *Agent) sshProbe() (bool, string) {
+	if isPortListening(a.cfg.LocalPort) {
+		return true, ""
+	}
+	a.sshMu.Lock()
+	reason := a.sshErr
+	a.sshMu.Unlock()
+	if reason == "" {
+		reason = fmt.Sprintf("127.0.0.1:%d 未监听", a.cfg.LocalPort)
+	}
+	return false, reason
+}
+
+// watchSSHD 后台看护内嵌 sshd：监听消失就重启，失败原因留在状态帧里让 Hub 和 Entry 看见。
+//
+// SkipSSHD 模式下 SSH 服务由现场自己提供，只探测不接管，避免误杀别人的 sshd。
+func (a *Agent) watchSSHD(ctx context.Context, port int) {
+	if a.cfg.SkipSSHD {
+		return
+	}
+	go func() {
+		ticker := time.NewTicker(sshdWatchInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+			if isPortListening(port) {
+				continue
+			}
+			log.Warn().Int("port", port).Msg("embedded sshd listener gone, restarting")
+			a.restartSSHD(ctx, port)
+		}
+	}()
+}
+
+// restartSSHD 关闭旧的内嵌 sshd 并重新启动；失败时记录原因，等下一轮巡检再试。
+// 参数 ctx：Agent 生命周期；参数 port：本机 SSH 端口。
+func (a *Agent) restartSSHD(ctx context.Context, port int) {
+	a.closeSSHCleanup()
+	cleanup, err := a.ensureSSHD(ctx, port)
+	if err != nil {
+		a.sshMu.Lock()
+		a.sshErr = err.Error()
+		a.sshMu.Unlock()
+		log.Warn().Err(err).Int("port", port).Msg("embedded sshd restart failed, will retry")
+		return
+	}
+	a.setSSHCleanup(cleanup)
+	log.Info().Int("port", port).Msg("embedded sshd restarted")
+}
+
 func userHomeDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {

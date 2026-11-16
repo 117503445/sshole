@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/117503445/sshole/pkg/common"
+	"github.com/117503445/sshole/pkg/proto"
 	"github.com/117503445/sshole/pkg/tunnel"
 	"github.com/coder/websocket"
 	"github.com/rs/zerolog/log"
@@ -30,9 +31,32 @@ func (h *Hub) handleTunnelWS(w http.ResponseWriter, r *http.Request) {
 
 	h.mu.RLock()
 	state, ok := h.agents[agentName]
+	var (
+		online   bool
+		status   *proto.AgentStatus
+		lastSeen time.Time
+	)
+	if ok {
+		online = state.Control != nil
+		status = state.Status
+		lastSeen = state.LastSeen
+	}
 	h.mu.RUnlock()
 	if !ok {
 		http.Error(w, "unknown agent", http.StatusForbidden)
+		return
+	}
+	if !online {
+		// 没有控制连接就没人应答这次会话。以前这里照样接受 WebSocket，然后让 Entry
+		// 等满 pending 超时，只拿到一个握手 EOF；现在直接把原因写进 HTTP 状态。
+		message := "agent offline: 控制连接不存在，机器可能已关机或掉线"
+		if status != nil {
+			message += fmt.Sprintf("；最近状态 hostname=%s version=%s ssh_ready=%v", status.Hostname, status.Version, status.SSHReady)
+		}
+		if !lastSeen.IsZero() {
+			message += fmt.Sprintf("；最后活跃 %s", lastSeen.Format(time.RFC3339))
+		}
+		http.Error(w, message, http.StatusServiceUnavailable)
 		return
 	}
 

@@ -26,6 +26,9 @@ var cli struct {
 	MappingFile string        `env:"SSHOLE_HUB_MAPPING_FILE" default:"data/port_mapping.json"`
 	Pending     time.Duration `env:"SSHOLE_HUB_PENDING_TIMEOUT" default:"10s"`
 	TunnelDial  time.Duration `env:"SSHOLE_HUB_TUNNEL_DIAL_TIMEOUT" default:"5s"`
+	// AgentPing 决定 Hub 多久主动探测一次控制连接；pong 在 AgentPingTimeout 内回不来就判离线。
+	AgentPing        time.Duration `env:"SSHOLE_HUB_AGENT_PING_INTERVAL" default:"20s"`
+	AgentPingTimeout time.Duration `env:"SSHOLE_HUB_AGENT_PING_TIMEOUT" default:"10s"`
 }
 
 func init() {
@@ -59,6 +62,8 @@ func main() {
 		MappingFile:       cli.MappingFile,
 		PendingTimeout:    cli.Pending,
 		TunnelDialTimeout: cli.TunnelDial,
+		AgentPingInterval: cli.AgentPing,
+		AgentPingTimeout:  cli.AgentPingTimeout,
 		BinsFS:            binsFS,
 	}
 	log.Info().Interface("cfg", cfg).Msg("hub config")

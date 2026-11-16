@@ -105,6 +105,36 @@ Hub：https://sshole.cloud.117503445.top
 | `--mapping-file` | `SSHOLE_HUB_MAPPING_FILE` | string | `data/port_mapping.json` | 端口映射持久化文件路径 |
 | `--pending` | `SSHOLE_HUB_PENDING_TIMEOUT` | duration | `10s` | 等待隧道建立的超时时间 |
 | `--tunnel-dial` | `SSHOLE_HUB_TUNNEL_DIAL_TIMEOUT` | duration | `5s` | 隧道拨号超时时间 |
+| `--agent-ping` | `SSHOLE_HUB_AGENT_PING_INTERVAL` | duration | `20s` | Hub 主动探测 Agent 控制连接的周期 |
+| `--agent-ping-timeout` | `SSHOLE_HUB_AGENT_PING_TIMEOUT` | duration | `10s` | 单次探测等待 pong 的上限，超时即判定离线 |
+
+#### 在线判定与状态查询
+
+机器直接断电时 TCP 不会发 FIN，Hub 只靠读循环会长期以为 Agent 还在，Entry 那边只能拿到
+一个无法判断的 `handshake EOF`。现在：
+
+1. Agent 每 20 秒在控制连接上发一帧 `STATUS`（同时承担保活），内容是构建版本、提交、
+   构建时间、主机名、本机 SSH 端口与是否可连接、最近一次 SSH 失败原因。
+2. Hub 每 `--agent-ping` 主动 ping 一次控制连接，pong 在 `--agent-ping-timeout` 内回不来
+   就立刻把该 Agent 标记为离线，并关闭这条连接让 Agent 重连。
+3. Agent 内嵌 sshd 由看护协程每 15 秒巡检，监听消失会自动重启，失败原因进入状态帧。
+4. Agent 不在线时，`/tunnel` 直接返回 `503` 并带上原因，不再让 Entry 等满 pending 超时。
+
+运维查询入口（Bearer 与 RPC 相同）：
+
+```bash
+curl -sS -H "Authorization: Bearer $SSHOLE_HUB_AUTH" https://hub.example.com/api/agents
+# {"agents":[{"agent_name":"desktop-8nkqc4t-318ddebf","hub_port":10017,"online":false,
+#   "last_seen_ms":1794825990690,"status_reported":true,"hostname":"DESKTOP-8NKQC4T",
+#   "version":"37651c0","ssh_port":22222,"ssh_ready":true}]}
+```
+
+- `online=false` 且 `last_seen_ms` 停住：机器已关机或掉线。
+- `online=true` 但 `ssh_ready=false`：机器在跑，是 Agent 本机 SSH 起不来，看 `ssh_error`。
+- `status_reported=false`：现场还是旧构建，不会上报状态，先更新 Agent。
+
+Entry 启动时会打印同一份状态，SSH 测试失败和隧道拨号失败也会把 `hub_view` 一起打出来，
+不必再去猜"到底是没开机还是没监听"。
 
 #### 二进制分发
 

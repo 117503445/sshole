@@ -59,6 +59,14 @@ func startTestHubWithFS(t *testing.T, binsFS fs.FS) (*Hub, string) {
 // startTestHubEx wires every knob of HubConfig used by tests.
 func startTestHubEx(t *testing.T, agents map[string]int, pendingTimeout time.Duration, binsFS fs.FS) (*Hub, string) {
 	t.Helper()
+	return startTestHubFull(t, agents, pendingTimeout, binsFS, 0, 0)
+}
+
+// startTestHubFull 额外允许压缩 Agent 保活探测周期，避免测试为了看离线等 20 秒。
+// 参数 agents：预置 Agent 端口映射；参数 pendingTimeout：会话等待上限；参数 binsFS：内嵌二进制；
+// 参数 agentPingInterval：Hub 主动探测周期；参数 agentPingTimeout：单次探测等待 pong 上限。
+func startTestHubFull(t *testing.T, agents map[string]int, pendingTimeout time.Duration, binsFS fs.FS, agentPingInterval, agentPingTimeout time.Duration) (*Hub, string) {
+	t.Helper()
 	mappingFile := filepath.Join(t.TempDir(), "port_mapping.json")
 	if agents != nil {
 		if err := SaveMapping(mappingFile, &PortMapping{Agents: agents}); err != nil {
@@ -67,11 +75,13 @@ func startTestHubEx(t *testing.T, agents map[string]int, pendingTimeout time.Dur
 	}
 	httpPort := freePort(t)
 	h, err := NewHub(HubConfig{
-		AuthToken:      testToken,
-		HTTPAddr:       fmt.Sprintf("127.0.0.1:%d", httpPort),
-		MappingFile:    mappingFile,
-		PendingTimeout: pendingTimeout,
-		BinsFS:         binsFS,
+		AuthToken:         testToken,
+		HTTPAddr:          fmt.Sprintf("127.0.0.1:%d", httpPort),
+		MappingFile:       mappingFile,
+		PendingTimeout:    pendingTimeout,
+		BinsFS:            binsFS,
+		AgentPingInterval: agentPingInterval,
+		AgentPingTimeout:  agentPingTimeout,
 	})
 	if err != nil {
 		t.Fatalf("NewHub: %v", err)
@@ -620,5 +630,86 @@ func TestBinDownloadEmbeddedServing(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	if string(body) != "embedded-agent" {
 		t.Fatalf("body = %q", body)
+	}
+}
+
+// TestAgentStatusAndLiveness 验证 Agent 状态帧会进入 /api/agents，并且半开的控制连接会被判离线。
+//
+// 这是今天真实踩到的坑：机器直接关机时 TCP 不发 FIN，Hub 只靠读循环会长期显示 online，
+// Entry 那边只能看到一个无法判断的 handshake EOF。
+func TestAgentStatusAndLiveness(t *testing.T) {
+	_, addr := startTestHubFull(t, map[string]int{"live": freePort(t)}, 5*time.Second, nil, 200*time.Millisecond, 500*time.Millisecond)
+
+	ws := connectAgent(t, addr, "live")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	frame, err := json.Marshal(proto.AgentStatus{
+		Type: "STATUS", Hostname: "HOST-A", Version: "v-test", Commit: "abc123", SSHPort: 22222, SSHReady: true,
+	})
+	if err != nil {
+		t.Fatalf("marshal status: %v", err)
+	}
+	if err := ws.Write(ctx, websocket.MessageText, frame); err != nil {
+		t.Fatalf("write status: %v", err)
+	}
+
+	view := waitAgentView(t, addr, "live", func(v agentStatusView) bool {
+		return v.Online && v.StatusReported && v.SSHReady && v.Hostname == "HOST-A"
+	})
+	if view.Version != "v-test" || view.Commit != "abc123" || view.SSHPort != 22222 {
+		t.Fatalf("unexpected agent view: %+v", view)
+	}
+	if view.LastSeenMS == 0 {
+		t.Fatal("last_seen must be recorded when a status frame arrives")
+	}
+
+	// 之后客户端不再读帧，因此不会回 pong，等价于机器掉电留下的半开连接。
+	waitAgentView(t, addr, "live", func(v agentStatusView) bool { return !v.Online })
+}
+
+// TestTunnelRejectsOfflineAgent 验证 Agent 不在线时 Entry 立刻拿到 503，而不是等满 pending 超时。
+func TestTunnelRejectsOfflineAgent(t *testing.T) {
+	_, addr := startTestHub(t, map[string]int{"gone": freePort(t)})
+	_, resp, err := dialRaw(t, "ws://"+addr+"/tunnel", authHeader("gone"))
+	if err == nil {
+		t.Fatal("expected tunnel dial to be rejected")
+	}
+	if resp == nil || resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 rejection, got %v", resp)
+	}
+}
+
+// waitAgentView 轮询 /api/agents，直到目标 Agent 满足条件并返回该条视图。
+// 参数 httpAddr：Hub 监听地址；参数 name：Agent 名称；参数 match：判定条件。
+func waitAgentView(t *testing.T, httpAddr, name string, match func(agentStatusView) bool) agentStatusView {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		req, err := http.NewRequest(http.MethodGet, "http://"+httpAddr+"/api/agents", nil)
+		if err != nil {
+			t.Fatalf("build agents request: %v", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+testToken)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("agents api: %v", err)
+		}
+		var body struct {
+			Agents []agentStatusView `json:"agents"`
+		}
+		decodeErr := json.NewDecoder(resp.Body).Decode(&body)
+		resp.Body.Close()
+		if decodeErr != nil {
+			t.Fatalf("decode agents api: %v", decodeErr)
+		}
+		for _, view := range body.Agents {
+			if view.AgentName == name && match(view) {
+				return view
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("agent %s never matched condition, last body %+v", name, body.Agents)
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }
