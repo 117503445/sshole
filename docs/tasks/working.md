@@ -138,3 +138,12 @@
   3. 此时启动 Entry：`agent state ... state="online=false（Hub 已判定离线，机器多半已关机或断网）最后已知状态 hostname=dev-nixos ssh=22922 就绪 last_seen=2026-11-16T18:46:30+08:00"`，
      隧道拨号失败也带同一句 `hub_view`，不再是裸 EOF。
   4. `kill -CONT` 恢复：Agent 自动重连，`online:true` 且 `last_seen_ms` 重新推进。
+
+### CI 往返修正
+
+- 首次 CI（run 43852284769）`test` 失败：`TestRestartSSHDRestoresListener` 触发 `-race` 报数据竞争，
+  竞争双方都在依赖 `sshdev/internal/server` 内部——`Start` 在端口已可接受连接之后仍会继续写 listener 字段，
+  此时调用 `Stop` 就撞上。本地无可用 cgo（缺 crt），只能靠 CI 发现。
+- 修正：`ensureSSHD` 在确认端口可见后再等 `sshdStartSettle`（250ms）才返回，使
+  `closeSSHCleanup`/`restartSSHD` 不会在依赖未收敛时调用 `Stop`；这同时消除了生产路径上
+  "安装后立刻停服务" 的同一窗口，而不是只把测试调松。

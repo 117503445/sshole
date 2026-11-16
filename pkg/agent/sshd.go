@@ -72,10 +72,17 @@ func (a *Agent) ensureSSHD(ctx context.Context, port int) (func(), error) {
 	}
 
 	log.Info().Int("port", port).Msg("sshd started using sshdev")
+	// sshdev 的 Start 在端口已经能接受连接之后还会继续写自己的 listener 字段，
+	// 此时立刻 Stop 会与它竞争（CI -race 实测过）。留出收敛窗口，
+	// 之后的 closeSSHCleanup / restartSSHD 才是安全的。
+	time.Sleep(sshdStartSettle)
 	return func() {
 		server.Stop()
 	}, nil
 }
+
+// sshdStartSettle 是内嵌 sshd 端口可见后等待 sshdev 完成内部字段写入的时间。
+const sshdStartSettle = 250 * time.Millisecond
 
 func isPortListening(port int) bool {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
