@@ -72,17 +72,10 @@ func (a *Agent) ensureSSHD(ctx context.Context, port int) (func(), error) {
 	}
 
 	log.Info().Int("port", port).Msg("sshd started using sshdev")
-	// sshdev 的 Start 在端口已经能接受连接之后还会继续写自己的 listener 字段，
-	// 此时立刻 Stop 会与它竞争（CI -race 实测过）。留出收敛窗口，
-	// 之后的 closeSSHCleanup / restartSSHD 才是安全的。
-	time.Sleep(sshdStartSettle)
 	return func() {
 		server.Stop()
 	}, nil
 }
-
-// sshdStartSettle 是内嵌 sshd 端口可见后等待 sshdev 完成内部字段写入的时间。
-const sshdStartSettle = 250 * time.Millisecond
 
 func isPortListening(port int) bool {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
@@ -156,10 +149,14 @@ func (a *Agent) watchSSHD(ctx context.Context, port int) {
 	}()
 }
 
-// restartSSHD 关闭旧的内嵌 sshd 并重新启动；失败时记录原因，等下一轮巡检再试。
+// restartSSHD 在本机端口上重新创建一个内嵌 sshd；失败时记录原因，等下一轮巡检再试。
+//
+// 这里刻意不对已经死掉的旧服务调 Stop：sshdev 的 Server.Start 写 s.listener、
+// Server.Stop 读 s.listener，两者之间没有任何同步（CI -race 实测），跨协程 Stop
+// 必然构成数据竞争。监听消失说明旧服务的 accept 循环已经退出，直接重建就够；
+// 旧服务对象留给进程退出回收，不额外持有可写状态。
 // 参数 ctx：Agent 生命周期；参数 port：本机 SSH 端口。
 func (a *Agent) restartSSHD(ctx context.Context, port int) {
-	a.closeSSHCleanup()
 	cleanup, err := a.ensureSSHD(ctx, port)
 	if err != nil {
 		a.sshMu.Lock()

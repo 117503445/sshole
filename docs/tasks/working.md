@@ -147,3 +147,15 @@
 - 修正：`ensureSSHD` 在确认端口可见后再等 `sshdStartSettle`（250ms）才返回，使
   `closeSSHCleanup`/`restartSSHD` 不会在依赖未收敛时调用 `Stop`；这同时消除了生产路径上
   "安装后立刻停服务" 的同一窗口，而不是只把测试调松。
+
+### CI 往返修正（第二次，根因更正）
+
+- `551484c` 的 250ms 收敛窗口没有消除竞争，CI 仍报 `-race`。看依赖源码才确认根因：
+  `sshdev/internal/server` 的 `Start` 写 `s.listener`（server.go:139）、`Stop` 读 `s.listener`
+  （server.go:275），两者之间没有任何同步原语。竞争检测看的是 happens-before，不是时间间隔，
+  所以"多等一会儿"原理上就不可能修好，跨协程调用 `Stop` 一定被判竞争。
+- 正确做法：看护协程重启时**不再对已死的旧服务调 `Stop`**，只在新建成功后替换引用；
+  监听消失本身说明旧服务 accept 循环已退出。进程退出路径仍调用一次 `Stop`（既有行为，
+  不被测试覆盖），依赖侧的同步缺失作为已知问题记录，建议后续在 sshdev 内加锁修根。
+- 相应删除 `sshdStartSettle`，测试改为不触发 `Stop`：`TestRestartSSHDRestoresListener`
+  只验证能在同端口重建监听，`TestSSHProbeSurfacesRecordedFailure` 验证失败原因会进状态帧。
